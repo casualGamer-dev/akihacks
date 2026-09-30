@@ -1,10 +1,11 @@
 "use client";
 /* eslint-disable react-hooks/immutability -- three.js uniforms and scene objects are mutated every frame by design */
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
 import type { RefObject } from "react";
 import { STOPS, stopZ } from "@/lib/journey";
+import { CHZ, clamp, heightAt, pieces, RIDGES, riverX, rng, ss, vnoise, ZMIN, type ChunkPiece, type Piece } from "@/lib/worldgen";
 
 export type Quality = "high" | "low";
 
@@ -34,68 +35,6 @@ const FOG_FAR = 200;
 const CAM = new THREE.Vector3(-2, 4.5, 36);
 const SUN_DIR = new THREE.Vector3(0.45, 0.2, -1).normalize();
 const col = (h: string) => new THREE.Color(h);
-
-/* ----------------------------------------------------------------------------
-   Deterministic JS noise (terrain + placement). GLSL twin below.
----------------------------------------------------------------------------- */
-function rng(seed: number) {
-  return () => {
-    seed = (seed + 0x6d2b79f5) | 0;
-    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
-const hash = (x: number, z: number) => {
-  const s = Math.sin(x * 127.1 + z * 311.7) * 43758.5453;
-  return s - Math.floor(s);
-};
-function vnoise(x: number, z: number) {
-  const xi = Math.floor(x), zi = Math.floor(z);
-  const xf = x - xi, zf = z - zi;
-  const u = xf * xf * (3 - 2 * xf), v = zf * zf * (3 - 2 * zf);
-  const a = hash(xi, zi), b = hash(xi + 1, zi), c = hash(xi, zi + 1), d = hash(xi + 1, zi + 1);
-  return a + (b - a) * u + (c - a) * v + (a - b - c + d) * u * v;
-}
-function fbm(x: number, y: number, oct = 5) {
-  let v = 0, a = 0.5;
-  for (let i = 0; i < oct; i++) {
-    v += a * vnoise(x, y);
-    x = x * 2.03 + 17.1;
-    y = y * 2.03 + 17.1;
-    a *= 0.5;
-  }
-  return v;
-}
-/** Bake a noise field into an 8-bit texture once, so shaders do a lookup instead of fbm per pixel. */
-function bake(w: number, h: number, f: (u: number, v: number) => number) {
-  const data = new Uint8Array(w * h);
-  for (let j = 0; j < h; j++)
-    for (let i = 0; i < w; i++) data[j * w + i] = Math.round(clamp(f((i + 0.5) / w, (j + 0.5) / h)) * 255);
-  const t = new THREE.DataTexture(data, w, h, THREE.RedFormat);
-  t.minFilter = t.magFilter = THREE.LinearFilter;
-  t.wrapS = THREE.MirroredRepeatWrapping;
-  t.generateMipmaps = false;
-  t.needsUpdate = true;
-  return t;
-}
-const clamp = (v: number, a = 0, b = 1) => Math.min(b, Math.max(a, v));
-const ss = (a: number, b: number, x: number) => {
-  const t = clamp((x - a) / (b - a));
-  return t * t * (3 - 2 * t);
-};
-const riverX = (z: number) => 2 + 6 * Math.sin(0.05 * z + 0.6) + 0.04 * z;
-
-function heightAt(x: number, z: number) {
-  const d = Math.abs(x - riverX(z));
-  let h = -1 + 1.3 * ss(3.2, 5.2, d);
-  h += ss(5, 35, d) * 2.4 * (0.6 + 0.8 * vnoise(x * 0.05, z * 0.05));
-  h += (vnoise(x * 0.15 + 3, z * 0.15) - 0.5) * 0.7 * ss(5, 10, d);
-  const far = Math.min(100, Math.max(0, -z - 25));
-  h += far * far * 0.0026 * (0.5 + vnoise(x * 0.03 + 5, z * 0.03)) * ss(5, 16, d); // not under the river, or the boat sinks
-  h += Math.max(0, Math.abs(x) - 45) * 0.28;
-  return h;
-}
 
 /* ----------------------------------------------------------------------------
    GLSL
@@ -261,7 +200,8 @@ void main(){
   c += vec3(sin(uTime*2.3 + ph), cos(uTime*1.9 + ph), 0.0)*0.025*(1.0 + uGust*4.0);
   vec4 mv = viewMatrix*vec4(c, 1.0);
   float r = aPar.y + sin(uTime*1.7 + ph*1.6)*0.1*(1.0 + uGust*2.0);
-  mv.xy += mat2(cos(r), -sin(r), sin(r), cos(r))*position.xy*aPar.x; // camera-facing card
+  float lodKeep = 1.0 - 0.72*smoothstep(35.0, 95.0, -mv.z); // same curve as updateLOD on the CPU
+  mv.xy += mat2(cos(r), -sin(r), sin(r), cos(r))*position.xy*aPar.x*1.22*inversesqrt(lodKeep); // camera-facing card
   vDist = -mv.z; vN = aDir.xyz; vCol = aCol; vShade = aPar.z;
   gl_Position = projectionMatrix*mv;
 }
@@ -276,7 +216,7 @@ void main(){
   vec3 n = normalize(vN);
   float l = (dot(n, uLightDir)*0.5 + 0.5)*0.7 + (n.y*0.5 + 0.5)*0.3;
   float band = l < 0.4 ? 0.64 : (l < 0.62 ? 0.84 : 1.0); // toon bands, matches the rest of the scene
-  vec3 c = vCol*band*(0.8 + 0.2*t.r)*(0.9 + 0.2*vShade);
+  vec3 c = vCol*band*(0.8 + 0.2*t.r)*vShade; // vShade = baked occlusion
   gl_FragColor = vec4(fogIt(c, vDist), 1.0);
   #include <colorspace_fragment>
 }
@@ -336,13 +276,6 @@ function makeUniforms() {
 }
 type Uniforms = ReturnType<typeof makeUniforms>;
 
-const RIDGES = [
-  { z: -415, w: 1600, c: "#b3c3e8", c2: "#c3cdee", base: 30, amp: 48, freq: 0.011, seed: 3.1, snow: 44, patch: 0.3 },
-  { z: -325, w: 1200, c: "#8fa7da", c2: "#9aaedb", base: 18, amp: 34, freq: 0.017, seed: 8.7, snow: 40, patch: 0.3 },
-  { z: -255, w: 900, c: "#6c89c2", c2: "#7b8f9e", base: 10, amp: 20, freq: 0.025, seed: 1.9, snow: 1e4, patch: 0.5 },
-  { z: -200, w: 650, c: "#b8663a", c2: "#8a7c3c", base: 5, amp: 12, freq: 0.035, seed: 5.3, snow: 1e4, patch: 1 },
-];
-
 function buildWorld(q: Quality, U: Uniforms) {
   const hi = q === "high";
   const group = new THREE.Group();
@@ -382,52 +315,55 @@ function buildWorld(q: Quality, U: Uniforms) {
   sky.renderOrder = -10;
   group.add(sky);
 
-  // clouds (noise baked once)
-  const cloudTex = bake(hi ? 1024 : 512, hi ? 192 : 96, (u, v) => fbm(u * 12.4, v * 2.4 - 0.08, hi ? 5 : 4));
-  const clouds = new THREE.Mesh(
-    new THREE.PlaneGeometry(2600, 300),
-    shader(
-      CLOUD_F,
-      {
-        uLit: { value: col(HEX.cloudLit) },
-        uShade: { value: col(HEX.cloudShade) },
-        uNoise: { value: cloudTex },
-      },
-      { transparent: true, depthWrite: false },
-    ),
+  // clouds and ridge silhouettes: meshes exist now (so their shaders compile with the rest), the baked noise streams in
+  const mkTex = (w: number, h: number, data: Uint8Array, mirror: boolean) => {
+    const t = new THREE.DataTexture(data, w, h, THREE.RedFormat);
+    t.minFilter = t.magFilter = THREE.LinearFilter;
+    if (mirror) t.wrapS = THREE.MirroredRepeatWrapping;
+    t.generateMipmaps = false;
+    t.needsUpdate = true;
+    return t;
+  };
+  const cloudMat = shader(
+    CLOUD_F,
+    {
+      uLit: { value: col(HEX.cloudLit) },
+      uShade: { value: col(HEX.cloudShade) },
+      uNoise: { value: mkTex(1, 1, new Uint8Array(1), false) },
+    },
+    { transparent: true, depthWrite: false },
   );
+  const clouds = new THREE.Mesh(new THREE.PlaneGeometry(2600, 300), cloudMat);
   clouds.position.set(0, 140, -520);
   group.add(clouds);
 
   // mountain ridges, painted back to front
-  for (const r of RIDGES) {
+  const ridgeMats = RIDGES.map((r) => {
     const H = r.base + r.amp * 1.4 + 4;
-    const crestTex = bake(hi ? 2048 : 1024, 1, (u) => fbm((u - 0.5) * r.w * r.freq + r.seed, r.seed * 0.37));
-    const m = new THREE.Mesh(
-      new THREE.PlaneGeometry(r.w, H),
-      shader(
-        RIDGE_F,
-        {
-          uColor: { value: col(r.c) },
-          uColor2: { value: col(r.c2) },
-          uLight: { value: col(r.c).lerp(col("#fff1de"), 0.45) },
-          uSnow: { value: col("#f6f7ff") },
-          uSeed: { value: r.seed },
-          uAmp: { value: r.amp },
-          uBase: { value: r.base },
-          uFreq: { value: r.freq },
-          uSnowLine: { value: r.snow },
-          uHeight: { value: H },
-          uPatch: { value: r.patch },
-          uW: { value: r.w },
-          uCrest: { value: crestTex },
-        },
-        { transparent: true },
-      ),
+    const mat = shader(
+      RIDGE_F,
+      {
+        uColor: { value: col(r.c) },
+        uColor2: { value: col(r.c2) },
+        uLight: { value: col(r.c).lerp(col("#fff1de"), 0.45) },
+        uSnow: { value: col("#f6f7ff") },
+        uSeed: { value: r.seed },
+        uAmp: { value: r.amp },
+        uBase: { value: r.base },
+        uFreq: { value: r.freq },
+        uSnowLine: { value: r.snow },
+        uHeight: { value: H },
+        uPatch: { value: r.patch },
+        uW: { value: r.w },
+        uCrest: { value: mkTex(1, 1, new Uint8Array(1), true) },
+      },
+      { transparent: true },
     );
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(r.w, H), mat);
     m.position.set(0, -2 + H / 2, r.z);
     group.add(m);
-  }
+    return mat;
+  });
 
   // terrain
   const [sx, sz] = hi ? [200, 200] : [120, 120];
@@ -474,44 +410,10 @@ function buildWorld(q: Quality, U: Uniforms) {
     ),
   );
 
-  // maple trees: one instanced draw for foliage, one for trunks
-  const r = rng(7);
-  const autumn = ["#ee6b2b", "#f58e36", "#d8432b", "#f4b13f", "#e25a2c"].map(col);
-  const ever = ["#557c3d", "#476f39"].map(col);
-  const blobs: { x: number; y: number; z: number; s: number; c: THREE.Color }[] = [];
-  const trunks: { x: number; y: number; z: number; h: number; w: number }[] = [];
-  const addTree = (x: number, z: number, s: number, full: boolean) => {
-    const h = heightAt(x, z);
-    const th = (1.3 + r() * 0.8) * s;
-    trunks.push({ x, y: h - 0.3, z, h: th + 0.3 + 0.5 * s, w: 0.18 * s });
-    const pal = r() < 0.14 ? ever : autumn;
-    const tc = pal[Math.floor(r() * pal.length)];
-    blobs.push({ x, y: h + th + 0.9 * s, z, s: 1.35 * s, c: tc });
-    if (full) {
-      blobs.push({ x: x + 0.9 * s, y: h + th + 0.5 * s, z: z + 0.4 * s, s: 1.0 * s, c: tc });
-      blobs.push({ x: x - 0.8 * s, y: h + th + 0.6 * s, z: z - 0.3 * s, s: 1.05 * s, c: tc });
-    }
-    blobs.push({ x: x + 0.15 * s, y: h + th + 1.9 * s, z, s: 0.95 * s, c: tc });
-  };
-  for (let n = 0, tries = 0; n < (hi ? 380 : 200) && tries < 80000; tries++) {
-    const x = -70 + r() * 140, z = -160 + r() * 160;
-    const d = Math.abs(x - riverX(z));
-    if (d < 6.5 || (z > -12 && x < 0) || (z > -8 && d > 14)) continue; // keep the meadow under the headline clear
-    if (r() > (0.25 + 0.75 * (1 - ss(6, 22, d))) * (0.4 + vnoise(x * 0.07, z * 0.07))) continue;
-    addTree(x, z, 0.7 + r() * 0.5, true);
-    n++;
-  }
-  for (let n = 0, tries = 0; n < (hi ? 900 : 480) && tries < 80000; tries++) {
-    const x = -95 + r() * 190, z = -190 + r() * 165;
-    if (Math.abs(x - riverX(z)) < 7 || r() > 0.3 + vnoise(x * 0.05, z * 0.05)) continue;
-    addTree(x, z, 1.5 + r() * 0.9, false);
-    n++;
-  }
-  // near-first: early depth rejection + LOD can trim the far end by lowering .count
-  blobs.sort((a, b) => b.z - a.z);
-  trunks.sort((a, b) => b.z - a.z);
+  // ---- trees and grass stream in from lib/worldgen, one river slice at a time (see addPiece).
+  // Chunking: every slice is its own draw, so the GPU skips slices behind or beside the camera,
+  // and far slices get thinned (see updateLOD).
   const o = new THREE.Object3D();
-
   // leaf cards: camera-facing clusters of painted leaves on each crown, so crowns read leafy, not round
   const leafTex = (() => {
     const cv = document.createElement("canvas");
@@ -542,97 +444,81 @@ function buildWorld(q: Quality, U: Uniforms) {
     t.minFilter = THREE.LinearMipmapLinearFilter;
     return t;
   })();
-  // Chunking: every system below is split into slices along the river, so the GPU skips slices behind or beside
-  // the camera, and far slices get thinned (see updateLOD).
-  const ZMIN = -200, NCH = 12, CHZ = 240 / NCH;
-  const chunkOf = (z: number) => Math.min(NCH - 1, Math.max(0, Math.floor((z - ZMIN) / CHZ)));
   type Chunk = { geo: THREE.InstancedBufferGeometry; total: number; zc: number };
   const canopyChunks: Chunk[] = [];
   const grassChunks: Chunk[] = [];
-  const sphereOf = (pts: ArrayLike<number>, stride: number, count: number, pad: number) => {
-    const box = new THREE.Box3().makeEmpty();
-    const p = new THREE.Vector3();
-    for (let i = 0; i < count; i++) box.expandByPoint(p.set(pts[i * stride], pts[i * stride + 1], pts[i * stride + 2]));
-    return box.getBoundingSphere(new THREE.Sphere()).set(box.getCenter(new THREE.Vector3()), box.getSize(p).length() / 2 + pad);
-  };
+  const sph = (v: [number, number, number, number]) => new THREE.Sphere(new THREE.Vector3(v[0], v[1], v[2]), v[3]);
 
-  const CARDS = hi ? 40 : 22; // crowns are leaf cards only, no solid core, so they need more
   const card = new THREE.PlaneGeometry(1, 1);
-  const cr = rng(13);
-  const v3 = new THREE.Vector3();
-  const lc = new THREE.Color();
   const canopyMat = shader(
     CANOPY_F,
     { uLeaf: { value: leafTex }, uLightDir: { value: new THREE.Vector3(70, 55, -10).normalize() } },
     {},
     CANOPY_V,
   );
-  const buckets: (typeof blobs)[] = Array.from({ length: NCH }, () => []);
-  for (const b of blobs) buckets[chunkOf(b.z)].push(b);
-  buckets.forEach((bl, ci) => {
-    if (!bl.length) return;
-    const n0 = bl.length * CARDS;
+  const mkCanopy = (a: { center: Float32Array; dir: Float32Array; par: Float32Array; col: Float32Array }, n: number, sphere: THREE.Sphere) => {
     const cg = new THREE.InstancedBufferGeometry();
     cg.setIndex(card.index);
     cg.setAttribute("position", card.getAttribute("position"));
     cg.setAttribute("uv", card.getAttribute("uv"));
-    const aCenter = new Float32Array(n0 * 3), aDir = new Float32Array(n0 * 4);
-    const aPar = new Float32Array(n0 * 4), aCol = new Float32Array(n0 * 3);
-    // card-major order: trimming instanceCount thins every crown evenly instead of stripping far ones bare
-    for (let j = 0, n = 0; j < CARDS; j++)
-      for (const b of bl) {
-        v3.set(cr() * 2 - 1, (cr() * 2 - 1) * 0.85 + 0.2, cr() * 2 - 1).normalize();
-        aCenter.set([b.x, b.y, b.z], n * 3);
-        aDir.set([v3.x, v3.y, v3.z, b.s * (0.2 + 0.85 * Math.cbrt(cr()))], n * 4);
-        aPar.set([b.s * (0.75 + cr() * 0.45), cr() * Math.PI * 2, cr(), cr()], n * 4);
-        lc.copy(b.c).offsetHSL((cr() - 0.5) * 0.03, 0, (cr() - 0.5) * 0.08);
-        lc.toArray(aCol, n * 3);
-        n++;
-      }
-    cg.setAttribute("aCenter", new THREE.InstancedBufferAttribute(aCenter, 3));
-    cg.setAttribute("aDir", new THREE.InstancedBufferAttribute(aDir, 4));
-    cg.setAttribute("aPar", new THREE.InstancedBufferAttribute(aPar, 4));
-    cg.setAttribute("aCol", new THREE.InstancedBufferAttribute(aCol, 3));
-    cg.instanceCount = n0;
-    cg.boundingSphere = sphereOf(aCenter, 3, n0 / CARDS, 6); // crowns are at most ~3 units wide, plus sway
-    const mesh = new THREE.Mesh(cg, canopyMat);
-    group.add(mesh);
-    canopyChunks.push({ geo: cg, total: n0, zc: ZMIN + (ci + 0.5) * CHZ });
-  });
+    cg.setAttribute("aCenter", new THREE.InstancedBufferAttribute(a.center, 3));
+    cg.setAttribute("aDir", new THREE.InstancedBufferAttribute(a.dir, 4));
+    cg.setAttribute("aPar", new THREE.InstancedBufferAttribute(a.par, 4));
+    cg.setAttribute("aCol", new THREE.InstancedBufferAttribute(a.col, 3));
+    cg.instanceCount = n;
+    cg.boundingSphere = sphere;
+    return cg;
+  };
 
   const trunkGeo = new THREE.CylinderGeometry(0.6, 1, 1, 6);
   trunkGeo.translate(0, 0.5, 0);
-  const trunkMesh = new THREE.InstancedMesh(
-    trunkGeo,
-    new THREE.MeshToonMaterial({ color: "#5a3a2a", gradientMap: ramp }),
-    trunks.length,
-  );
-  trunks.forEach((t, i) => {
-    o.position.set(t.x, t.y, t.z);
-    o.scale.set(t.w, t.h, t.w);
-    o.updateMatrix();
-    trunkMesh.setMatrixAt(i, o.matrix);
-  });
-  trunkMesh.frustumCulled = false;
-  group.add(trunkMesh);
+  const trunkMat = new THREE.MeshToonMaterial({ color: "#5a3a2a", gradientMap: ramp });
 
-  // meadow grass: a few draw calls (one per river slice), wind + pointer brushing on the GPU
-  const GRASS = hi ? 36000 : 14000;
-  const w = 0.05;
+  // soft contact shadows under each crown: cheap fake occlusion that grounds the trees
+  const shadowTex = (() => {
+    const cv = document.createElement("canvas");
+    cv.width = cv.height = 64;
+    const g = cv.getContext("2d")!;
+    const grad = g.createRadialGradient(32, 32, 2, 32, 32, 32);
+    grad.addColorStop(0, "rgba(0,0,0,1)");
+    grad.addColorStop(0.55, "rgba(0,0,0,0.45)");
+    grad.addColorStop(1, "rgba(0,0,0,0)");
+    g.fillStyle = grad;
+    g.fillRect(0, 0, 64, 64);
+    return new THREE.CanvasTexture(cv);
+  })();
+  const shadowGeo = new THREE.PlaneGeometry(1, 1);
+  shadowGeo.rotateX(-Math.PI / 2);
+  const shadowMat = new THREE.MeshBasicMaterial({
+    map: shadowTex,
+    color: "#3a2210",
+    transparent: true,
+    opacity: 0.42,
+    depthWrite: false,
+    polygonOffset: true,
+    polygonOffsetFactor: -2,
+  });
+  const mkTrunks = (data: Float32Array, n: number) => {
+    const trunks = new THREE.InstancedMesh(trunkGeo, trunkMat, n);
+    const shadows = new THREE.InstancedMesh(shadowGeo, shadowMat, n);
+    for (let i = 0; i < n; i++) {
+      const x = data[i * 5], y = data[i * 5 + 1], z = data[i * 5 + 2], h = data[i * 5 + 3], w = data[i * 5 + 4];
+      o.position.set(x, y, z);
+      o.scale.set(w, h, w);
+      o.updateMatrix();
+      trunks.setMatrixAt(i, o.matrix);
+      o.position.set(x, y + 0.35, z);
+      o.scale.setScalar(w * 18);
+      o.updateMatrix();
+      shadows.setMatrixAt(i, o.matrix);
+    }
+    return [trunks, shadows]; // both frustum-culled per slice
+  };
+
+  // meadow grass: one draw per river slice, wind + pointer brushing on the GPU
+  const gw = 0.05;
   const gIndex = [0, 1, 2, 2, 1, 3, 2, 3, 4];
-  const gPos = new THREE.Float32BufferAttribute([-w, 0, 0, w, 0, 0, -w * 0.75, 0.45, 0, w * 0.75, 0.45, 0, 0, 1, 0], 3);
-  const gOff: number[][] = Array.from({ length: NCH }, () => []);
-  const gPar: number[][] = Array.from({ length: NCH }, () => []);
-  const gr = rng(3);
-  for (let n = 0; n < GRASS; n++) {
-    const z = -140 + gr() * 174;
-    const side = gr() < 0.5 ? -1 : 1;
-    const x = riverX(z) + side * (5.4 + gr() * gr() * 20);
-    const t = vnoise(x * 0.15, z * 0.15);
-    const c = chunkOf(z);
-    gOff[c].push(x, heightAt(x, z) - 0.05, z);
-    gPar[c].push(0.45 + gr() * 0.55 + t * 0.25, gr() * Math.PI, gr(), t);
-  }
+  const gPos = new THREE.Float32BufferAttribute([-gw, 0, 0, gw, 0, 0, -gw * 0.75, 0.45, 0, gw * 0.75, 0.45, 0, 0, 1, 0], 3);
   const grassMat = shader(
     GRASS_F,
     {
@@ -643,19 +529,106 @@ function buildWorld(q: Quality, U: Uniforms) {
     { side: THREE.DoubleSide },
     GRASS_V,
   );
-  gOff.forEach((offs, ci) => {
-    const n0 = offs.length / 3;
-    if (!n0) return;
+  const mkGrass = (off: Float32Array, par: Float32Array, n: number, sphere: THREE.Sphere) => {
     const gg = new THREE.InstancedBufferGeometry();
     gg.setIndex(gIndex);
     gg.setAttribute("position", gPos);
-    gg.setAttribute("aOff", new THREE.InstancedBufferAttribute(new Float32Array(offs), 3));
-    gg.setAttribute("aPar", new THREE.InstancedBufferAttribute(new Float32Array(gPar[ci]), 4));
-    gg.instanceCount = n0;
-    gg.boundingSphere = sphereOf(offs, 3, n0, 4); // blade height plus wind and pointer bend
-    group.add(new THREE.Mesh(gg, grassMat));
-    grassChunks.push({ geo: gg, total: n0, zc: ZMIN + (ci + 0.5) * CHZ });
-  });
+    gg.setAttribute("aOff", new THREE.InstancedBufferAttribute(off, 3));
+    gg.setAttribute("aPar", new THREE.InstancedBufferAttribute(par, 4));
+    gg.instanceCount = n;
+    gg.boundingSphere = sphere;
+    return gg;
+  };
+
+  // one hidden instance of each, so every shader compiles up front (compileAsync) instead of when the first slice lands
+  const away = new THREE.Sphere(new THREE.Vector3(0, -1000, 0), 1);
+  group.add(new THREE.Mesh(mkCanopy({ center: new Float32Array(3), dir: new Float32Array(4), par: new Float32Array(4), col: new Float32Array(3) }, 1, away), canopyMat));
+  group.add(new THREE.Mesh(mkGrass(new Float32Array([0, -1000, 0]), new Float32Array(4), 1, away), grassMat));
+  group.add(...mkTrunks(new Float32Array([0, -1000, 0, 1, 1]), 1));
+
+  /** Clouds and ridge silhouettes: baked noise streamed in from the worker. */
+  const addPiece = (p: Exclude<Piece, ChunkPiece>) => {
+    if (p.k === "cloud") {
+      const old = cloudMat.uniforms.uNoise.value as THREE.Texture;
+      cloudMat.uniforms.uNoise.value = mkTex(p.w, p.h, p.data, false);
+      old.dispose();
+    } else {
+      const u = ridgeMats[p.i].uniforms.uCrest;
+      const old = u.value as THREE.Texture;
+      u.value = mkTex(p.w, 1, p.data, true);
+      old.dispose();
+    }
+  };
+
+  // River slices are built on the GPU only while the boat is near them: the data arrives early, but slices far ahead
+  // (hidden in fog anyway) and far behind are not resident. Data stays in memory, so sailing back re-creates them.
+  const AHEAD = 150, BEHIND = 50;
+  const stored = new Map<number, ChunkPiece>();
+  type Live = { objs: THREE.Object3D[]; entries: Chunk[] };
+  const live = new Map<number, Live>();
+  const storeChunk = (p: ChunkPiece) => void stored.set(p.ci, p);
+  const buildSlice = (p: ChunkPiece) => {
+    const zc = ZMIN + (p.ci + 0.5) * CHZ;
+    const objs: THREE.Object3D[] = [];
+    const entries: Chunk[] = [];
+    if (p.canopy) {
+      const c = p.canopy;
+      const geo = mkCanopy(c, c.total, sph(c.sphere));
+      objs.push(new THREE.Mesh(geo, canopyMat));
+      const e = { geo, total: c.total, zc };
+      entries.push(e);
+      canopyChunks.push(e);
+    }
+    if (p.trunks) objs.push(...mkTrunks(p.trunks.data, p.trunks.n));
+    if (p.grass) {
+      const g = p.grass;
+      const geo = mkGrass(g.off, g.par, g.n, sph(g.sphere));
+      objs.push(new THREE.Mesh(geo, grassMat));
+      const e = { geo, total: g.n, zc };
+      entries.push(e);
+      grassChunks.push(e);
+    }
+    group.add(...objs);
+    live.set(p.ci, { objs, entries });
+  };
+  const dropSlice = (ci: number) => {
+    const l = live.get(ci);
+    if (!l) return;
+    for (const o of l.objs) {
+      group.remove(o);
+      // trunk/shadow meshes share their geometry, so only free their instance buffers
+      if ((o as THREE.InstancedMesh).isInstancedMesh) (o as THREE.InstancedMesh).dispose();
+      else (o as THREE.Mesh).geometry.dispose();
+    }
+    for (const e of l.entries) {
+      const i = canopyChunks.indexOf(e);
+      if (i >= 0) canopyChunks.splice(i, 1);
+      const j = grassChunks.indexOf(e);
+      if (j >= 0) grassChunks.splice(j, 1);
+    }
+    live.delete(ci);
+  };
+  /** Per frame: drop slices out of range, build at most one needed slice (nearest the boat first). */
+  const syncSlices = (boatZ: number) => {
+    for (const ci of [...live.keys()]) {
+      const zc = ZMIN + (ci + 0.5) * CHZ;
+      if (zc > boatZ + BEHIND + CHZ || zc < boatZ - AHEAD - CHZ) dropSlice(ci);
+    }
+    let best: ChunkPiece | null = null;
+    let bestD = Infinity;
+    for (const p of stored.values()) {
+      if (live.has(p.ci)) continue;
+      const zc = ZMIN + (p.ci + 0.5) * CHZ;
+      if (zc > boatZ + BEHIND || zc < boatZ - AHEAD) continue;
+      const d = Math.abs(zc - boatZ);
+      if (d < bestD) {
+        bestD = d;
+        best = p;
+      }
+    }
+    if (best) buildSlice(best);
+    return !!best;
+  };
 
   // falling maple leaves
   const LEAVES = hi ? 420 : 180;
@@ -816,7 +789,7 @@ function buildWorld(q: Quality, U: Uniforms) {
   );
   sail.position.set(0, 1.85, -0.62);
 
-  // stern lantern on a pole, and the sculling oar
+  // stern lantern on a pole
   const lanternMat = new THREE.MeshBasicMaterial({ color: "#ffb35a" });
   const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.035, 1.3, 5), wood);
   pole.position.set(0.25, 0.9, 1.95);
@@ -824,10 +797,7 @@ function buildWorld(q: Quality, U: Uniforms) {
   lantern.position.set(0.25, 1.45, 1.95);
   const cap = new THREE.Mesh(new THREE.ConeGeometry(0.17, 0.12, 10), ribMat);
   cap.position.set(0.25, 1.65, 1.95);
-  const oar = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, 2.6, 5), wood);
-  oar.position.set(-0.3, 0.2, 2.8);
-  oar.rotation.set(1.15, 0, 0.25);
-  boat.add(hullOut, hullIn, rail(1), rail(-1), floor, seat, roof, ...ribs, mast, yard, sail, pole, lantern, cap, oar);
+  boat.add(hullOut, hullIn, rail(1), rail(-1), floor, seat, roof, ...ribs, mast, yard, sail, pole, lantern, cap);
   boat.scale.setScalar(1.15);
   group.add(boat);
 
@@ -853,10 +823,16 @@ function buildWorld(q: Quality, U: Uniforms) {
     });
     group.add(im);
   }
+
   const rxp = (z: number) => 0.3 * Math.cos(0.05 * z + 0.6) + 0.04; // d(riverX)/dz
+  // pooled results: valid until the next call (the frame loop uses them immediately)
+  const posOut = { x: 0, z: 0 };
+  const boatOut = { x: 0, z: 0 };
   const boatPos = (seg: number) => {
     const z = stopZ(0) + (seg / (STOPS - 1)) * (stopZ(STOPS - 1) - stopZ(0));
-    return { x: riverX(z) + 0.6, z };
+    posOut.x = riverX(z) + 0.6;
+    posOut.z = z;
+    return posOut;
   };
   /** seg = position along the river in stop units. Returns the boat's world position. */
   const placeBoat = (seg: number, t: number) => {
@@ -864,7 +840,9 @@ function buildWorld(q: Quality, U: Uniforms) {
     boat.position.set(x, 0.22 + Math.sin(t * 1.3) * 0.03, z); // floor must stay above the opaque water plane or water shows inside the hull
     boat.rotation.set(Math.sin(t * 0.9) * 0.02, Math.atan2(rxp(z), 1), Math.sin(t * 1.1) * 0.035, "YXZ");
     sail.rotation.y = Math.sin(t * 0.8) * 0.05;
-    return { x, z };
+    boatOut.x = x;
+    boatOut.z = z;
+    return boatOut;
   };
   placeBoat(0, 0);
 
@@ -895,11 +873,11 @@ function buildWorld(q: Quality, U: Uniforms) {
   /** Per frame: far slices get fewer leaf cards and grass blades (they are a few pixels wide behind fog anyway). */
   const updateLOD = (camZ: number) => {
     for (const c of canopyChunks)
-      c.geo.instanceCount = Math.max(1, Math.floor(c.total * (1 - 0.72 * sst(35, 95, Math.abs(c.zc - camZ))) * Math.max(detail, 0.55)));
+      c.geo.instanceCount = Math.max(1, Math.floor(c.total * (1 - 0.72 * sst(35, 95, Math.abs(c.zc - camZ))) * Math.max(detail, 0.85)));
     for (const c of grassChunks)
       c.geo.instanceCount = Math.max(1, Math.floor(c.total * (1 - 0.8 * sst(25, 70, Math.abs(c.zc - camZ))) * Math.max(detail, 0.5)));
   };
-  return { group, dispose, setDetail, updateLOD, placeBoat, boatPos };
+  return { group, dispose, setDetail, updateLOD, placeBoat, boatPos, addPiece, storeChunk, syncSlices };
 }
 
 /* ----------------------------------------------------------------------------
@@ -925,8 +903,56 @@ function World({
   const camera = useThree((s) => s.camera);
   const gl = useThree((s) => s.gl);
   const setDpr = useThree((s) => s.setDpr);
+  const scene = useThree((s) => s.scene);
   const U = useMemo(() => makeUniforms(), []);
   const world = useMemo(() => buildWorld(quality, U), [quality, U]);
+
+  // Streaming: shaders compile in the background (compileAsync), then the scene appears and trees/grass arrive
+  // one river slice per frame from a worker, so the page never freezes on load.
+  const [shown, setShown] = useState(false);
+  const shownRef = useRef(false);
+  const queue = useRef<Piece[]>([]);
+  const fallback = useRef<Generator<Piece> | null>(null);
+  useEffect(() => {
+    let dead = false;
+    const hi = quality === "high";
+    gl.compileAsync(world.group, camera, scene)
+      .catch(() => {}) // no async compile support: the first frame just compiles synchronously
+      .then(() => {
+        if (dead) return;
+        shownRef.current = true;
+        setShown(true);
+      });
+
+    let received = 0;
+    let worker: Worker | null = null;
+    const fallBackToMainThread = () => {
+      if (received === 0) fallback.current = pieces(hi); // worker died before delivering anything: generate here, a piece per frame
+    };
+    try {
+      worker = new Worker(new URL("../lib/world.worker.ts", import.meta.url));
+      worker.onmessage = (e: MessageEvent<Piece | { k: "done" }>) => {
+        if (e.data.k !== "done") {
+          received++;
+          queue.current.push(e.data as Piece);
+        }
+      };
+      worker.onerror = () => {
+        worker?.terminate();
+        worker = null;
+        fallBackToMainThread();
+      };
+      worker.postMessage({ hi });
+    } catch {
+      fallBackToMainThread();
+    }
+    return () => {
+      dead = true;
+      worker?.terminate();
+      queue.current = [];
+      fallback.current = null;
+    };
+  }, [world, quality, gl, camera, scene]);
   useEffect(() => {
     // dev-only handle for profiling layers from the console
     if (process.env.NODE_ENV !== "production") (window as unknown as { __valley: THREE.Group }).__valley = world.group;
@@ -947,7 +973,7 @@ function World({
   );
   const invalidate = useThree((s) => s.invalidate);
   const perfEl = useRef<HTMLPreElement | null>(null);
-  const st = useRef({ pf: 0, pt: 0, seg: 0, from: 0, to: 0, tt: 0, dur: 1, sailing: false, ripple: 0, t: 0, gust: 0, wind: 0, active: false, frames: 0, acc: 0, n: 0, dpr: maxDpr, detail: 1 });
+  const st = useRef({ lastBuild: 0, pf: 0, pt: 0, seg: 0, from: 0, to: 0, tt: 0, dur: 1, sailing: false, ripple: 0, t: 0, gust: 0, lastGust: -99, wind: 0, active: false, frames: 0, acc: 0, n: 0, dpr: maxDpr, detail: 1 });
 
   useEffect(() => {
     st.current.dpr = Math.min(window.devicePixelRatio || 1, maxDpr);
@@ -962,6 +988,8 @@ function World({
     const down = (e: PointerEvent) => {
       if (e.button !== 0 || !locate(e)) return;
       if ((e.target as Element | null)?.closest?.("a,button,input,textarea,select,summary")) return;
+      if (st.current.t - st.current.lastGust < 4) return; // cooldown: one gust (and ripple) at a time, no spamming
+      st.current.lastGust = st.current.t;
       st.current.gust = 1;
       tmp.ray.setFromCamera(tmp.ndc, camera);
       if (tmp.ray.ray.intersectPlane(WATER, tmp.hit) && Math.abs(tmp.hit.x - riverX(tmp.hit.z)) < 4)
@@ -1093,11 +1121,22 @@ function World({
       }
     } else U.uPointer.value.set(999, 999);
 
+    // stream in one piece (clouds, ridges, then a river slice) per frame
+    if (shownRef.current) {
+      const p = queue.current.shift() ?? (fallback.current?.next().value as Piece | undefined);
+      if (p) {
+        if (p.k === "chunk") world.storeChunk(p);
+        else world.addPiece(p);
+      }
+      const built = world.syncSlices(world.boatPos(s.seg).z);
+      if (p || built) s.lastBuild = s.frames;
+    }
+
     // first frames rendered: reveal
-    if (++s.frames === 3) onReady();
+    if (shownRef.current && ++s.frames === 3) onReady();
 
     // adaptive resolution: step down if the device can't hold ~48fps
-    if (rawDt < 0.25 && s.frames > 60 && !(story && !s.sailing)) {
+    if (rawDt < 0.25 && s.frames > 60 && s.frames - s.lastBuild > 90 && !(story && !s.sailing)) {
       s.acc += rawDt;
       s.n++;
       if (s.acc > 1.5) {
@@ -1116,7 +1155,7 @@ function World({
     }
   });
 
-  return <primitive object={world.group} />;
+  return shown ? <primitive object={world.group} /> : null;
 }
 
 export default function ValleyScene({
