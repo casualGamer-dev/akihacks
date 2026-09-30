@@ -91,7 +91,7 @@ function heightAt(x: number, z: number) {
   let h = -1 + 1.3 * ss(3.2, 5.2, d);
   h += ss(5, 35, d) * 2.4 * (0.6 + 0.8 * vnoise(x * 0.05, z * 0.05));
   h += (vnoise(x * 0.15 + 3, z * 0.15) - 0.5) * 0.7 * ss(5, 10, d);
-  const far = Math.max(0, -z - 25);
+  const far = Math.min(100, Math.max(0, -z - 25));
   h += far * far * 0.0026 * (0.5 + vnoise(x * 0.03 + 5, z * 0.03)) * ss(5, 16, d); // not under the river, or the boat sinks
   h += Math.max(0, Math.abs(x) - 45) * 0.28;
   return h;
@@ -186,10 +186,13 @@ void main(){
   vec3 c = mix(uDeep, uShallow, smoothstep(0.0, 4.0, d));
   c = mix(c, uSkyRef, 0.3 + 0.55*fres);
   c = mix(c, uWarm, smoothstep(2.2, 4.3, d)*0.35);
-  float n = noise(vec2(vW.x*0.6, vW.z*0.15 - uTime*0.5));
-  float lines = sin(vW.z*2.2 + n*6.0 - uTime*1.6);
-  float spark = smoothstep(0.94, 0.995, lines)*(0.5 + 0.5*noise(vec2(vW.x*2.0, vW.z*0.5 + uTime)));
-  c = mix(c, vec3(1.0), spark*0.7);
+  float fd = length(cameraPosition - vW);
+  if (fd < 110.0){ // far water is mostly fog: skip the noise there
+    float n = noise(vec2(vW.x*0.6, vW.z*0.15 - uTime*0.5));
+    float lines = sin(vW.z*2.2 + n*6.0 - uTime*1.6);
+    float spark = smoothstep(0.94, 0.995, lines)*(0.5 + 0.5*noise(vec2(vW.x*2.0, vW.z*0.5 + uTime)));
+    c = mix(c, vec3(1.0), spark*0.7);
+  }
   c = mix(c, vec3(1.0, 0.98, 0.94), smoothstep(3.6, 4.2, d)*0.55);
   float rt = uTime - uRipple.z;
   if (rt > 0.0 && rt < 4.0){
@@ -201,7 +204,7 @@ void main(){
     }
     c = mix(c, vec3(1.0), clamp(ring, 0.0, 1.0)*exp(-rt*0.9)*0.8);
   }
-  gl_FragColor = vec4(fogIt(c, length(cameraPosition - vW)), 1.0);
+  gl_FragColor = vec4(fogIt(c, fd), 1.0);
   #include <colorspace_fragment>
 }
 `;
@@ -334,10 +337,10 @@ function makeUniforms() {
 type Uniforms = ReturnType<typeof makeUniforms>;
 
 const RIDGES = [
-  { z: -320, w: 1600, c: "#b3c3e8", c2: "#c3cdee", base: 30, amp: 48, freq: 0.011, seed: 3.1, snow: 44, patch: 0.3 },
-  { z: -230, w: 1200, c: "#8fa7da", c2: "#9aaedb", base: 18, amp: 34, freq: 0.017, seed: 8.7, snow: 40, patch: 0.3 },
-  { z: -160, w: 900, c: "#6c89c2", c2: "#7b8f9e", base: 10, amp: 20, freq: 0.025, seed: 1.9, snow: 1e4, patch: 0.5 },
-  { z: -105, w: 650, c: "#b8663a", c2: "#8a7c3c", base: 5, amp: 12, freq: 0.035, seed: 5.3, snow: 1e4, patch: 1 },
+  { z: -415, w: 1600, c: "#b3c3e8", c2: "#c3cdee", base: 30, amp: 48, freq: 0.011, seed: 3.1, snow: 44, patch: 0.3 },
+  { z: -325, w: 1200, c: "#8fa7da", c2: "#9aaedb", base: 18, amp: 34, freq: 0.017, seed: 8.7, snow: 40, patch: 0.3 },
+  { z: -255, w: 900, c: "#6c89c2", c2: "#7b8f9e", base: 10, amp: 20, freq: 0.025, seed: 1.9, snow: 1e4, patch: 0.5 },
+  { z: -200, w: 650, c: "#b8663a", c2: "#8a7c3c", base: 5, amp: 12, freq: 0.035, seed: 5.3, snow: 1e4, patch: 1 },
 ];
 
 function buildWorld(q: Quality, U: Uniforms) {
@@ -427,10 +430,10 @@ function buildWorld(q: Quality, U: Uniforms) {
   }
 
   // terrain
-  const [sx, sz] = hi ? [200, 130] : [120, 76];
-  const tg = new THREE.PlaneGeometry(280, 140, sx, sz);
+  const [sx, sz] = hi ? [200, 200] : [120, 120];
+  const tg = new THREE.PlaneGeometry(280, 240, sx, sz);
   tg.rotateX(-Math.PI / 2);
-  tg.translate(0, 0, -30);
+  tg.translate(0, 0, -80);
   const pos = tg.attributes.position;
   const colors = new Float32Array(pos.count * 3);
   const P = {
@@ -456,9 +459,9 @@ function buildWorld(q: Quality, U: Uniforms) {
   group.add(new THREE.Mesh(tg, new THREE.MeshToonMaterial({ vertexColors: true, gradientMap: ramp })));
 
   // river
-  const wg = new THREE.PlaneGeometry(280, 140);
+  const wg = new THREE.PlaneGeometry(280, 240);
   wg.rotateX(-Math.PI / 2);
-  wg.translate(0, 0, -30);
+  wg.translate(0, 0, -80);
   group.add(
     new THREE.Mesh(
       wg,
@@ -490,16 +493,16 @@ function buildWorld(q: Quality, U: Uniforms) {
     }
     blobs.push({ x: x + 0.15 * s, y: h + th + 1.9 * s, z, s: 0.95 * s, c: tc });
   };
-  for (let n = 0, tries = 0; n < (hi ? 170 : 90) && tries < 30000; tries++) {
-    const x = -70 + r() * 140, z = -60 + r() * 60;
+  for (let n = 0, tries = 0; n < (hi ? 380 : 200) && tries < 80000; tries++) {
+    const x = -70 + r() * 140, z = -160 + r() * 160;
     const d = Math.abs(x - riverX(z));
     if (d < 6.5 || (z > -12 && x < 0) || (z > -8 && d > 14)) continue; // keep the meadow under the headline clear
     if (r() > (0.25 + 0.75 * (1 - ss(6, 22, d))) * (0.4 + vnoise(x * 0.07, z * 0.07))) continue;
     addTree(x, z, 0.7 + r() * 0.5, true);
     n++;
   }
-  for (let n = 0, tries = 0; n < (hi ? 420 : 220) && tries < 30000; tries++) {
-    const x = -95 + r() * 190, z = -88 + r() * 63;
+  for (let n = 0, tries = 0; n < (hi ? 900 : 480) && tries < 80000; tries++) {
+    const x = -95 + r() * 190, z = -190 + r() * 165;
     if (Math.abs(x - riverX(z)) < 7 || r() > 0.3 + vnoise(x * 0.05, z * 0.05)) continue;
     addTree(x, z, 1.5 + r() * 0.9, false);
     n++;
@@ -539,45 +542,63 @@ function buildWorld(q: Quality, U: Uniforms) {
     t.minFilter = THREE.LinearMipmapLinearFilter;
     return t;
   })();
+  // Chunking: every system below is split into slices along the river, so the GPU skips slices behind or beside
+  // the camera, and far slices get thinned (see updateLOD).
+  const ZMIN = -200, NCH = 12, CHZ = 240 / NCH;
+  const chunkOf = (z: number) => Math.min(NCH - 1, Math.max(0, Math.floor((z - ZMIN) / CHZ)));
+  type Chunk = { geo: THREE.InstancedBufferGeometry; total: number; zc: number };
+  const canopyChunks: Chunk[] = [];
+  const grassChunks: Chunk[] = [];
+  const sphereOf = (pts: ArrayLike<number>, stride: number, count: number, pad: number) => {
+    const box = new THREE.Box3().makeEmpty();
+    const p = new THREE.Vector3();
+    for (let i = 0; i < count; i++) box.expandByPoint(p.set(pts[i * stride], pts[i * stride + 1], pts[i * stride + 2]));
+    return box.getBoundingSphere(new THREE.Sphere()).set(box.getCenter(new THREE.Vector3()), box.getSize(p).length() / 2 + pad);
+  };
+
   const CARDS = hi ? 40 : 22; // crowns are leaf cards only, no solid core, so they need more
-  const leafN = blobs.length * CARDS;
-  const cg = new THREE.InstancedBufferGeometry();
   const card = new THREE.PlaneGeometry(1, 1);
-  cg.setIndex(card.index);
-  cg.setAttribute("position", card.getAttribute("position"));
-  cg.setAttribute("uv", card.getAttribute("uv"));
-  const aCenter = new Float32Array(leafN * 3), aDir = new Float32Array(leafN * 4);
-  const aPar = new Float32Array(leafN * 4), aCol = new Float32Array(leafN * 3);
   const cr = rng(13);
   const v3 = new THREE.Vector3();
   const lc = new THREE.Color();
-  // card-major order: trimming instanceCount thins every crown evenly instead of stripping far ones bare
-  for (let j = 0, n = 0; j < CARDS; j++)
-    for (const b of blobs) {
-      v3.set(cr() * 2 - 1, (cr() * 2 - 1) * 0.85 + 0.2, cr() * 2 - 1).normalize();
-      aCenter.set([b.x, b.y, b.z], n * 3);
-      aDir.set([v3.x, v3.y, v3.z, b.s * (0.2 + 0.85 * Math.cbrt(cr()))], n * 4);
-      aPar.set([b.s * (0.75 + cr() * 0.45), cr() * Math.PI * 2, cr(), cr()], n * 4);
-      lc.copy(b.c).offsetHSL((cr() - 0.5) * 0.03, 0, (cr() - 0.5) * 0.08);
-      lc.toArray(aCol, n * 3);
-      n++;
-    }
-  cg.setAttribute("aCenter", new THREE.InstancedBufferAttribute(aCenter, 3));
-  cg.setAttribute("aDir", new THREE.InstancedBufferAttribute(aDir, 4));
-  cg.setAttribute("aPar", new THREE.InstancedBufferAttribute(aPar, 4));
-  cg.setAttribute("aCol", new THREE.InstancedBufferAttribute(aCol, 3));
-  cg.instanceCount = leafN;
-  const canopy = new THREE.Mesh(
-    cg,
-    shader(
-      CANOPY_F,
-      { uLeaf: { value: leafTex }, uLightDir: { value: new THREE.Vector3(70, 55, -10).normalize() } },
-      {},
-      CANOPY_V,
-    ),
+  const canopyMat = shader(
+    CANOPY_F,
+    { uLeaf: { value: leafTex }, uLightDir: { value: new THREE.Vector3(70, 55, -10).normalize() } },
+    {},
+    CANOPY_V,
   );
-  canopy.frustumCulled = false;
-  group.add(canopy);
+  const buckets: (typeof blobs)[] = Array.from({ length: NCH }, () => []);
+  for (const b of blobs) buckets[chunkOf(b.z)].push(b);
+  buckets.forEach((bl, ci) => {
+    if (!bl.length) return;
+    const n0 = bl.length * CARDS;
+    const cg = new THREE.InstancedBufferGeometry();
+    cg.setIndex(card.index);
+    cg.setAttribute("position", card.getAttribute("position"));
+    cg.setAttribute("uv", card.getAttribute("uv"));
+    const aCenter = new Float32Array(n0 * 3), aDir = new Float32Array(n0 * 4);
+    const aPar = new Float32Array(n0 * 4), aCol = new Float32Array(n0 * 3);
+    // card-major order: trimming instanceCount thins every crown evenly instead of stripping far ones bare
+    for (let j = 0, n = 0; j < CARDS; j++)
+      for (const b of bl) {
+        v3.set(cr() * 2 - 1, (cr() * 2 - 1) * 0.85 + 0.2, cr() * 2 - 1).normalize();
+        aCenter.set([b.x, b.y, b.z], n * 3);
+        aDir.set([v3.x, v3.y, v3.z, b.s * (0.2 + 0.85 * Math.cbrt(cr()))], n * 4);
+        aPar.set([b.s * (0.75 + cr() * 0.45), cr() * Math.PI * 2, cr(), cr()], n * 4);
+        lc.copy(b.c).offsetHSL((cr() - 0.5) * 0.03, 0, (cr() - 0.5) * 0.08);
+        lc.toArray(aCol, n * 3);
+        n++;
+      }
+    cg.setAttribute("aCenter", new THREE.InstancedBufferAttribute(aCenter, 3));
+    cg.setAttribute("aDir", new THREE.InstancedBufferAttribute(aDir, 4));
+    cg.setAttribute("aPar", new THREE.InstancedBufferAttribute(aPar, 4));
+    cg.setAttribute("aCol", new THREE.InstancedBufferAttribute(aCol, 3));
+    cg.instanceCount = n0;
+    cg.boundingSphere = sphereOf(aCenter, 3, n0 / CARDS, 6); // crowns are at most ~3 units wide, plus sway
+    const mesh = new THREE.Mesh(cg, canopyMat);
+    group.add(mesh);
+    canopyChunks.push({ geo: cg, total: n0, zc: ZMIN + (ci + 0.5) * CHZ });
+  });
 
   const trunkGeo = new THREE.CylinderGeometry(0.6, 1, 1, 6);
   trunkGeo.translate(0, 0.5, 0);
@@ -595,44 +616,46 @@ function buildWorld(q: Quality, U: Uniforms) {
   trunkMesh.frustumCulled = false;
   group.add(trunkMesh);
 
-  // meadow grass: one draw call, wind + pointer brushing on the GPU
-  const GRASS = hi ? 22000 : 9000;
+  // meadow grass: a few draw calls (one per river slice), wind + pointer brushing on the GPU
+  const GRASS = hi ? 36000 : 14000;
   const w = 0.05;
-  const gg = new THREE.InstancedBufferGeometry();
-  gg.setIndex([0, 1, 2, 2, 1, 3, 2, 3, 4]);
-  gg.setAttribute(
-    "position",
-    new THREE.Float32BufferAttribute([-w, 0, 0, w, 0, 0, -w * 0.75, 0.45, 0, w * 0.75, 0.45, 0, 0, 1, 0], 3),
-  );
-  const off = new Float32Array(GRASS * 3), par = new Float32Array(GRASS * 4);
+  const gIndex = [0, 1, 2, 2, 1, 3, 2, 3, 4];
+  const gPos = new THREE.Float32BufferAttribute([-w, 0, 0, w, 0, 0, -w * 0.75, 0.45, 0, w * 0.75, 0.45, 0, 0, 1, 0], 3);
+  const gOff: number[][] = Array.from({ length: NCH }, () => []);
+  const gPar: number[][] = Array.from({ length: NCH }, () => []);
   const gr = rng(3);
-  for (let n = 0; n < GRASS; ) {
-    const z = -72 + gr() * 106;
+  for (let n = 0; n < GRASS; n++) {
+    const z = -140 + gr() * 174;
     const side = gr() < 0.5 ? -1 : 1;
     const x = riverX(z) + side * (5.4 + gr() * gr() * 20);
-    off.set([x, heightAt(x, z) - 0.05, z], n * 3);
     const t = vnoise(x * 0.15, z * 0.15);
-    par.set([0.45 + gr() * 0.55 + t * 0.25, gr() * Math.PI, gr(), t], n * 4);
-    n++;
+    const c = chunkOf(z);
+    gOff[c].push(x, heightAt(x, z) - 0.05, z);
+    gPar[c].push(0.45 + gr() * 0.55 + t * 0.25, gr() * Math.PI, gr(), t);
   }
-  gg.setAttribute("aOff", new THREE.InstancedBufferAttribute(off, 3));
-  gg.setAttribute("aPar", new THREE.InstancedBufferAttribute(par, 4));
-  gg.instanceCount = GRASS;
-  const grass = new THREE.Mesh(
-    gg,
-    shader(
-      GRASS_F,
-      {
-        uBase: { value: col(HEX.grassBase) },
-        uTip: { value: col(HEX.grassTip) },
-        uTipAutumn: { value: col(HEX.grassAutumn) },
-      },
-      { side: THREE.DoubleSide },
-      GRASS_V,
-    ),
+  const grassMat = shader(
+    GRASS_F,
+    {
+      uBase: { value: col(HEX.grassBase) },
+      uTip: { value: col(HEX.grassTip) },
+      uTipAutumn: { value: col(HEX.grassAutumn) },
+    },
+    { side: THREE.DoubleSide },
+    GRASS_V,
   );
-  grass.frustumCulled = false;
-  group.add(grass);
+  gOff.forEach((offs, ci) => {
+    const n0 = offs.length / 3;
+    if (!n0) return;
+    const gg = new THREE.InstancedBufferGeometry();
+    gg.setIndex(gIndex);
+    gg.setAttribute("position", gPos);
+    gg.setAttribute("aOff", new THREE.InstancedBufferAttribute(new Float32Array(offs), 3));
+    gg.setAttribute("aPar", new THREE.InstancedBufferAttribute(new Float32Array(gPar[ci]), 4));
+    gg.instanceCount = n0;
+    gg.boundingSphere = sphereOf(offs, 3, n0, 4); // blade height plus wind and pointer bend
+    group.add(new THREE.Mesh(gg, grassMat));
+    grassChunks.push({ geo: gg, total: n0, zc: ZMIN + (ci + 0.5) * CHZ });
+  });
 
   // falling maple leaves
   const LEAVES = hi ? 420 : 180;
@@ -812,22 +835,23 @@ function buildWorld(q: Quality, U: Uniforms) {
   const post = new THREE.CylinderGeometry(0.07, 0.09, 1.1, 6);
   const lampPost = new THREE.CylinderGeometry(0.05, 0.07, 2.6, 6);
   const lamp = new THREE.SphereGeometry(0.22, 10, 8);
-  for (let i = 0; i < STOPS; i++) {
-    const z = stopZ(i);
-    const rx = riverX(z);
-    const d = new THREE.Group();
-    const pl = new THREE.Mesh(plank, deckMat);
-    pl.position.set(rx + 4.3, 0.2, z);
-    const p1 = new THREE.Mesh(post, wood);
-    p1.position.set(rx + 3.0, 0.1, z - 0.5);
-    const p2 = p1.clone();
-    p2.position.z = z + 0.5;
-    const lp = new THREE.Mesh(lampPost, wood);
-    lp.position.set(rx + 5.7, heightAt(rx + 5.7, z) + 1.2, z);
-    const lm = new THREE.Mesh(lamp, lanternMat);
-    lm.position.set(rx + 5.7, lp.position.y + 1.4, z);
-    d.add(pl, p1, p2, lp, lm);
-    group.add(d);
+  // docks: 7 stops x 5 parts as 4 instanced draws instead of 35 meshes
+  const dockParts = [
+    { geo: plank, mat: deckMat, at: (rx: number, z: number) => [[rx + 4.3, 0.2, z]] },
+    { geo: post, mat: wood, at: (rx: number, z: number) => [[rx + 3.0, 0.1, z - 0.5], [rx + 3.0, 0.1, z + 0.5]] },
+    { geo: lampPost, mat: wood, at: (rx: number, z: number) => [[rx + 5.7, heightAt(rx + 5.7, z) + 1.2, z]] },
+    { geo: lamp, mat: lanternMat, at: (rx: number, z: number) => [[rx + 5.7, heightAt(rx + 5.7, z) + 2.6, z]] },
+  ];
+  const dm = new THREE.Object3D();
+  for (const part of dockParts) {
+    const pts = Array.from({ length: STOPS }, (_, i) => part.at(riverX(stopZ(i)), stopZ(i))).flat();
+    const im = new THREE.InstancedMesh(part.geo, part.mat, pts.length);
+    pts.forEach((p, i) => {
+      dm.position.set(p[0], p[1], p[2]);
+      dm.updateMatrix();
+      im.setMatrixAt(i, dm.matrix);
+    });
+    group.add(im);
   }
   const rxp = (z: number) => 0.3 * Math.cos(0.05 * z + 0.6) + 0.04; // d(riverX)/dz
   const boatPos = (seg: number) => {
@@ -859,12 +883,23 @@ function buildWorld(q: Quality, U: Uniforms) {
     card.dispose();
     ramp.dispose();
   };
-  /** Level of detail: 1 = full, lower trims the farthest trees and thins the grass. */
+  /** Level of detail: 1 = full. Lowered by the adaptive-resolution loop on slow devices. */
+  let detail = 1;
   const setDetail = (k: number) => {
-    cg.instanceCount = Math.floor(leafN * Math.max(k, 0.55));
-    gg.instanceCount = Math.floor(GRASS * Math.max(k, 0.5));
+    detail = k;
   };
-  return { group, dispose, setDetail, placeBoat, boatPos };
+  const sst = (a: number, b: number, x: number) => {
+    const t = Math.min(1, Math.max(0, (x - a) / (b - a)));
+    return t * t * (3 - 2 * t);
+  };
+  /** Per frame: far slices get fewer leaf cards and grass blades (they are a few pixels wide behind fog anyway). */
+  const updateLOD = (camZ: number) => {
+    for (const c of canopyChunks)
+      c.geo.instanceCount = Math.max(1, Math.floor(c.total * (1 - 0.72 * sst(35, 95, Math.abs(c.zc - camZ))) * Math.max(detail, 0.55)));
+    for (const c of grassChunks)
+      c.geo.instanceCount = Math.max(1, Math.floor(c.total * (1 - 0.8 * sst(25, 70, Math.abs(c.zc - camZ))) * Math.max(detail, 0.5)));
+  };
+  return { group, dispose, setDetail, updateLOD, placeBoat, boatPos };
 }
 
 /* ----------------------------------------------------------------------------
@@ -878,9 +913,11 @@ function World({
   maxDpr,
   onReady,
   story,
+  paused,
 }: {
   quality: Quality;
   maxDpr: number;
+  paused: boolean;
   onReady: () => void;
   /** The boat trip: target stop to sail to, and a callback on arrival. Absent = the still hero. */
   story?: RefObject<{ target: number; onArrive: () => void }>;
@@ -908,7 +945,9 @@ function World({
     }),
     [],
   );
-  const st = useRef({ seg: 0, from: 0, to: 0, tt: 0, dur: 1, sailing: false, ripple: 0, t: 0, gust: 0, wind: 0, active: false, frames: 0, acc: 0, n: 0, dpr: maxDpr, detail: 1 });
+  const invalidate = useThree((s) => s.invalidate);
+  const perfEl = useRef<HTMLPreElement | null>(null);
+  const st = useRef({ pf: 0, pt: 0, seg: 0, from: 0, to: 0, tt: 0, dur: 1, sailing: false, ripple: 0, t: 0, gust: 0, wind: 0, active: false, frames: 0, acc: 0, n: 0, dpr: maxDpr, detail: 1 });
 
   useEffect(() => {
     st.current.dpr = Math.min(window.devicePixelRatio || 1, maxDpr);
@@ -939,7 +978,37 @@ function World({
     };
   }, [gl, camera, tmp, U, maxDpr]);
 
-  useFrame(({ size }, rawDt) => {
+  // Frames are requested by us (frameloop="demand"): full rate while sailing or in the hero,
+  // ~30fps while parked at a stop, when only leaf sway and water move.
+  useEffect(() => {
+    if (paused) return;
+    let raf = 0, last = 0;
+    const tick = (now: number) => {
+      raf = requestAnimationFrame(tick);
+      if (now - last >= (story && !st.current.sailing ? 30 : 0)) {
+        last = now;
+        invalidate();
+      }
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [paused, story, invalidate]);
+
+  // dev (or ?perf in the URL): live frame stats
+  useEffect(() => {
+    if (process.env.NODE_ENV === "production" && !location.search.includes("perf")) return;
+    const el = document.createElement("pre");
+    el.style.cssText =
+      "position:fixed;left:8px;bottom:8px;z-index:99;margin:0;padding:6px 8px;font:11px/1.35 monospace;background:#000c;color:#7f7;pointer-events:none";
+    document.body.append(el);
+    perfEl.current = el;
+    return () => {
+      el.remove();
+      perfEl.current = null;
+    };
+  }, []);
+
+  useFrame(({ size, viewport }, rawDt) => {
     const s = st.current;
     const dt = Math.min(rawDt, 0.05);
     s.t += dt;
@@ -1002,6 +1071,19 @@ function World({
       camera.lookAt(tmp.look);
     }
 
+    world.updateLOD(camera.position.z);
+
+    if (perfEl.current) {
+      s.pf++;
+      s.pt += rawDt;
+      if (s.pt > 0.5) {
+        const r = gl.info.render;
+        perfEl.current.textContent = `${Math.round(s.pf / s.pt)} fps · ${r.calls} calls · ${Math.round(r.triangles / 1000)}k tris · dpr ${viewport.dpr.toFixed(2)} · detail ${s.detail.toFixed(2)}${story && !s.sailing ? " · parked" : ""}`;
+        s.pf = 0;
+        s.pt = 0;
+      }
+    }
+
     // pointer brushes the grass
     if (s.active) {
       tmp.ray.setFromCamera(tmp.ndc, camera);
@@ -1015,7 +1097,7 @@ function World({
     if (++s.frames === 3) onReady();
 
     // adaptive resolution: step down if the device can't hold ~48fps
-    if (rawDt < 0.25 && s.frames > 60) {
+    if (rawDt < 0.25 && s.frames > 60 && !(story && !s.sailing)) {
       s.acc += rawDt;
       s.n++;
       if (s.acc > 1.5) {
@@ -1053,7 +1135,7 @@ export default function ValleyScene({
     <Canvas
       flat
       dpr={[0.75, maxDpr]}
-      frameloop={paused ? "never" : "always"}
+      frameloop="demand"
       camera={{ position: CAM.toArray(), fov: 40, near: 0.5, far: 1200 }}
       gl={{ antialias: quality === "high", powerPreference: "high-performance", stencil: false, alpha: false }}
       onCreated={({ gl, scene }) => {
@@ -1063,7 +1145,7 @@ export default function ValleyScene({
     >
       <hemisphereLight args={["#d6e6fb", "#c79a62", 1.6]} />
       <directionalLight position={[70, 55, -10]} intensity={1.7} color="#fff0db" />
-      <World quality={quality} maxDpr={maxDpr} onReady={onReady} story={story} />
+      <World quality={quality} maxDpr={maxDpr} onReady={onReady} story={story} paused={paused} />
     </Canvas>
   );
 }
