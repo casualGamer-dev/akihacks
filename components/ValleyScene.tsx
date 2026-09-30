@@ -984,6 +984,8 @@ function World({
   onReady,
   onProgress,
   onGiveUp,
+  onTier,
+  canUpgrade,
   story,
   paused,
 }: {
@@ -996,8 +998,11 @@ function World({
   onProgress?: (fraction: number) => void;
   /** Frame rate stayed under ~20fps even at the lowest settings: the caller should switch to the still image. */
   onGiveUp?: () => void;
+  /** Measured verdict on which tier fits this device (light to heavy after a stable 30fps, heavy to light if it can't hold 30). Remembered for the next visit only: the scene is never rebuilt mid-visit. */
+  onTier?: (q: Quality) => void;
+  canUpgrade?: boolean;
   /** The boat trip: target stop to sail to, and a callback on arrival. Absent = the still hero. */
-  story?: RefObject<{ target: number; onArrive: () => void }>;
+  story?: RefObject<{ target: number; seg: number; onArrive: () => void }>;
 }) {
   const camera = useThree((s) => s.camera);
   const gl = useThree((s) => s.gl);
@@ -1082,7 +1087,7 @@ function World({
   );
   const invalidate = useThree((s) => s.invalidate);
   const perfEl = useRef<HTMLPreElement | null>(null);
-  const st = useRef({ js: 0, bad: 0, shownAt: 0, revealed: false, lastBuild: 0, pf: 0, pt: 0, seg: 0, from: 0, to: 0, tt: 0, dur: 1, sailing: false, ripple: 0, t: 0, gust: 0, lastGust: -99, wind: 0, active: false, frames: 0, acc: 0, n: 0, dpr: maxDpr, detail: 1 });
+  const st = useRef({ init: false, stable: 0, slow: 0, upPending: false, tierSent: false, good: 0, wasParked: false, js: 0, bad: 0, shownAt: 0, revealed: false, lastBuild: 0, pf: 0, pt: 0, seg: 0, from: 0, to: 0, tt: 0, dur: 1, sailing: false, ripple: 0, t: 0, gust: 0, lastGust: -99, wind: 0, active: false, frames: 0, acc: 0, n: 0, dpr: maxDpr, detail: 1 });
 
   useEffect(() => {
     st.current.dpr = Math.min(window.devicePixelRatio || 1, maxDpr);
@@ -1160,6 +1165,11 @@ function World({
     const px = s.active ? tmp.ndc.x : 0, py = s.active ? tmp.ndc.y : 0;
     const k = 1 - Math.exp(-dt * 2.5);
     if (story?.current) {
+      if (!s.init) {
+        s.init = true; // after a tier change the scene is rebuilt: continue from where the boat was
+        s.seg = s.from = story.current.seg;
+        s.to = story.current.target;
+      }
       // sail: time-based ease between stops, independent of scroll or frame rate
       const goal = story.current.target;
       if (goal !== s.to) {
@@ -1183,6 +1193,7 @@ function World({
           story.current.onArrive();
         }
       }
+      story.current.seg = s.seg;
       const bp = world.placeBoat(s.seg, s.t);
       U.uOrigin.value.set(bp.x, bp.z - 22);
       tmp.target.set(bp.x * 0.85 - 1 + px * 1.0, 3.8 + py * 0.3 + Math.sin(s.t * 0.11) * 0.1, bp.z + 13.5);
@@ -1265,29 +1276,62 @@ function World({
       }
     }
 
-    // adaptive quality: sample the frame rate in 1.5s windows once streaming has settled
-    if (rawDt < 0.25 && s.frames > 60 && s.frames - s.lastBuild > 90) {
-      const parked = !!story && !s.sailing; // parked frames are capped at ~30fps on purpose
+    // Adaptive resolution. Short windows (0.6s) so it reacts within a leg of the trip; only the few frames right after
+    // a slice is built are skipped (skipping 90 starved it: sailing builds slices constantly). Parked frames are capped
+    // at ~30fps on purpose, so they neither lower nor raise anything.
+    const parked = !!story && !s.sailing;
+    if (parked !== s.wasParked) {
+      s.wasParked = parked;
+      s.acc = 0;
+      s.n = 0;
+    }
+    if (rawDt < 0.25 && s.frames > 30 && s.frames - s.lastBuild > 8) {
       s.acc += rawDt;
       s.n++;
-      if (s.acc > 1.5) {
+      if (s.acc > 0.6) {
         const fps = s.n / s.acc;
-        // far under budget three windows in a row (at the lowest resolution): this device can't run the scene
-        if (fps < (parked ? 12 : 20) && (parked || s.dpr <= 0.75)) {
-          if (++s.bad >= 3) onGiveUp?.();
+        // far under budget for a while, already at the lowest resolution: this device can't run the scene
+        if (fps < (parked ? 12 : 20) && (parked || s.dpr <= 0.7)) {
+          if (++s.bad >= 4) onGiveUp?.();
         } else s.bad = 0;
-        if (!parked && fps < 48) {
-          if (s.dpr > 0.75) {
-            s.dpr = Math.max(0.75, s.dpr - 0.25);
+        if (!parked && !s.tierSent) {
+          if (quality === "low" && canUpgrade) {
+            // sailing at full resolution without ever having had to scale down, holding 30fps or better
+            if (fps >= 30 && s.dpr >= maxDpr - 0.01 && s.detail >= 0.99) {
+              if (++s.stable >= 8) s.upPending = true; // ~5s of sailing; applied once the boat is parked
+            } else s.stable = 0;
+          } else if (quality === "high") {
+            if (fps < 30 && s.dpr <= 0.7) {
+              if (++s.slow >= 4) {
+                s.tierSent = true;
+                onTier?.("low");
+              }
+            } else s.slow = 0;
+          }
+        }
+        if (!parked) {
+          if (fps < 44) {
+            s.good = 0;
+            if (s.dpr > 0.6) {
+              s.dpr = Math.max(0.6, s.dpr - 0.2);
+              setDpr(s.dpr);
+            } else if (s.detail > 0.45 && fps < 36) {
+              s.detail -= 0.15;
+              world.setDetail(s.detail);
+            }
+          } else if (fps > 57 && ++s.good >= 4 && s.dpr < maxDpr) {
+            s.good = 0;
+            s.dpr = Math.min(maxDpr, s.dpr + 0.1);
             setDpr(s.dpr);
-          } else if (s.detail > 0.45) {
-            s.detail -= 0.2;
-            world.setDetail(s.detail);
           }
         }
         s.acc = 0;
         s.n = 0;
       }
+    }
+    if (s.upPending && !s.sailing && !s.tierSent && story) {
+      s.tierSent = true; // report once, when parked (nothing changes on screen)
+      onTier?.("high");
     }
     s.js += performance.now() - jsStart;
   });
@@ -1295,12 +1339,27 @@ function World({
   return shown ? <primitive object={world.group} /> : null;
 }
 
+// Canvas props must keep the same identity across renders: R3F re-applies a changed `dpr` prop, which silently undid the
+// adaptive resolution every time the page re-rendered (each stop change, each loading tick).
+const DPR: Record<Quality, [number, number]> = { high: [0.6, 1.25], low: [0.6, 1] };
+const CAMERA = { position: CAM.toArray(), fov: 40, near: 0.5, far: 1200 };
+const GL: Record<Quality, Partial<THREE.WebGLRendererParameters>> = {
+  high: { antialias: true, powerPreference: "high-performance", stencil: false, alpha: false },
+  low: { antialias: false, powerPreference: "high-performance", stencil: false, alpha: false },
+};
+const onCanvasCreated = ({ gl, scene }: { gl: THREE.WebGLRenderer; scene: THREE.Scene }) => {
+  gl.setClearColor(HEX.fog);
+  scene.fog = new THREE.Fog(HEX.fog, FOG_NEAR, FOG_FAR);
+};
+
 export default function ValleyScene({
   quality,
   paused,
   onReady,
   onProgress,
   onGiveUp,
+  onTier,
+  canUpgrade,
   story,
 }: {
   quality: Quality;
@@ -1308,24 +1367,23 @@ export default function ValleyScene({
   onReady: () => void;
   onProgress?: (fraction: number) => void;
   onGiveUp?: () => void;
-  story?: RefObject<{ target: number; onArrive: () => void }>;
+  onTier?: (q: Quality) => void;
+  canUpgrade?: boolean;
+  story?: RefObject<{ target: number; seg: number; onArrive: () => void }>;
 }) {
-  const maxDpr = quality === "high" ? 1.5 : 1.25;
+  const maxDpr = quality === "high" ? 1.25 : 1; // pixels are the main cost; the adaptive loop scales below this
   return (
     <Canvas
       flat
-      dpr={[0.75, maxDpr]}
+      dpr={DPR[quality]}
       frameloop="demand"
-      camera={{ position: CAM.toArray(), fov: 40, near: 0.5, far: 1200 }}
-      gl={{ antialias: quality === "high", powerPreference: "high-performance", stencil: false, alpha: false }}
-      onCreated={({ gl, scene }) => {
-        gl.setClearColor(HEX.fog);
-        scene.fog = new THREE.Fog(HEX.fog, FOG_NEAR, FOG_FAR);
-      }}
+      camera={CAMERA}
+      gl={GL[quality]}
+      onCreated={onCanvasCreated}
     >
       <hemisphereLight args={["#d6e6fb", "#c79a62", 1.6]} />
       <directionalLight position={[70, 55, -10]} intensity={1.7} color="#fff0db" />
-      <World quality={quality} maxDpr={maxDpr} onReady={onReady} onProgress={onProgress} onGiveUp={onGiveUp} story={story} paused={paused} />
+      <World quality={quality} maxDpr={maxDpr} onReady={onReady} onProgress={onProgress} onGiveUp={onGiveUp} onTier={onTier} canUpgrade={canUpgrade} story={story} paused={paused} />
     </Canvas>
   );
 }

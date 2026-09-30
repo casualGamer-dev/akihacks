@@ -26,15 +26,19 @@ export default function Story({
   sponsors,
   quality,
   onGiveUp,
+  onTier,
+  canUpgrade,
 }: {
   site: Defaults["site"];
   c: Defaults["home"];
   sponsors: Defaults["sponsors"]["others"];
   quality: Quality;
   onGiveUp: () => void;
+  onTier: (q: Quality) => void;
+  canUpgrade: boolean;
 }) {
   const stage = useRef<HTMLDivElement>(null);
-  const sail = useRef({ target: 0, onArrive: () => {} });
+  const sail = useRef({ target: 0, seg: 0, onArrive: () => {} });
   const readyRef = useRef(false);
   const [stop, setStop] = useState(0);
   const [moving, setMoving] = useState(false);
@@ -261,6 +265,8 @@ export default function Story({
             }}
             onProgress={setLoaded}
             onGiveUp={onGiveUp}
+            onTier={onTier}
+            canUpgrade={canUpgrade}
             story={sail}
           />
       </div>
