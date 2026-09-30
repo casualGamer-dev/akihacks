@@ -1,9 +1,9 @@
 import Link from "next/link";
-import Image from "next/image";
 import { links, Wordmark } from "./site";
 import type { Defaults } from "@/lib/content";
+import SponsorList from "./SponsorList";
 
-export default function Footer({ site }: { site: Defaults["site"] }) {
+export default function Footer({ site, sponsors }: { site: Defaults["site"]; sponsors: Defaults["sponsors"]["others"] }) {
   return (
     <footer className="bg-ink text-paper">
       <div className="mx-auto max-w-7xl px-5 py-16 sm:px-8">
@@ -13,6 +13,7 @@ export default function Footer({ site }: { site: Defaults["site"] }) {
             <p className="mt-4 max-w-xs text-sm text-paper/70">
               {site.footerBlurb}
             </p>
+            <p className="mt-4 text-sm font-bold">Organised by {site.organizerName}</p>
             <p className="mt-6 text-sm text-paper/70">
               {site.city} · {site.month}
               <br />
@@ -31,9 +32,9 @@ export default function Footer({ site }: { site: Defaults["site"] }) {
                 </li>
               ))}
               <li>
-                <Link href="/apply" className="hover:text-orange">
-                  Apply
-                </Link>
+                <a href={site.registerUrl} target="_blank" rel="noopener noreferrer" className="hover:text-orange">
+                  {site.registerLabel} ↗
+                </a>
               </li>
               <li>
                 <Link href="/contact" className="hover:text-orange">
@@ -56,22 +57,26 @@ export default function Footer({ site }: { site: Defaults["site"] }) {
                   {site.supportEmail}
                 </a>
               </li>
+              {site.linkedinUrl && (
+                <li>
+                  <a href={site.linkedinUrl} target="_blank" rel="noopener noreferrer" className="hover:text-orange">
+                    LinkedIn ↗
+                  </a>
+                </li>
+              )}
+              {site.instagramUrl && (
+                <li>
+                  <a href={site.instagramUrl} target="_blank" rel="noopener noreferrer" className="hover:text-orange">
+                    Instagram ↗
+                  </a>
+                </li>
+              )}
             </ul>
           </div>
 
           <div>
-            <h2 className="text-xs font-bold uppercase tracking-widest text-paper/50">
-              {site.partnerLabel}
-            </h2>
-            <a
-              href={site.partnerUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              aria-label={`${site.partnerName} (opens in new tab)`}
-              className="mt-4 inline-block bg-paper p-2"
-            >
-              <Image src={site.partnerLogo} alt={site.partnerName} width={56} height={56} className="size-14 object-cover mix-blend-multiply" />
-            </a>
+            <h2 className="text-xs font-bold uppercase tracking-widest text-paper/50">Sponsors</h2>
+            <SponsorList sponsors={sponsors} className="mt-4 flex-col !items-start gap-y-2.5 text-sm" />
           </div>
         </div>
 

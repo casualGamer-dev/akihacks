@@ -1,9 +1,17 @@
-import Image from "next/image";
 import HeroScene from "@/components/HeroScene";
 import { Btn, Fact, Section } from "@/components/ui";
 import type { Defaults } from "@/lib/content";
+import SponsorList from "@/components/SponsorList";
 
-export default function StaticHome({ site, c }: { site: Defaults["site"]; c: Defaults["home"] }) {
+export default function StaticHome({
+  site,
+  c,
+  sponsors,
+}: {
+  site: Defaults["site"];
+  c: Defaults["home"];
+  sponsors: Defaults["sponsors"]["others"];
+}) {
   const last = c.stages.length - 1;
   return (
     <>
@@ -54,7 +62,9 @@ export default function StaticHome({ site, c }: { site: Defaults["site"]; c: Def
               className="rise mt-9 flex flex-col gap-3 sm:flex-row"
               style={{ ["--d" as string]: "320ms" }}
             >
-              <Btn href="/apply">Apply now</Btn>
+              <Btn href={site.registerUrl} external>
+                {site.registerLabel}
+              </Btn>
               <Btn href="/experience" variant="line">
                 See how it works
               </Btn>
@@ -157,9 +167,13 @@ export default function StaticHome({ site, c }: { site: Defaults["site"]; c: Def
             rel="noopener noreferrer"
             className="group block border-2 border-ink p-8 transition-colors hover:bg-ink hover:text-paper sm:p-10"
           >
-            <p className="font-pixel text-7xl leading-none text-orange">{c.communityStat}</p>
-            <p className="mt-1 text-sm font-bold uppercase tracking-widest">{c.communityStatLabel}</p>
-            <p className="mt-8 text-2xl font-extrabold leading-snug">{c.communityQuote}</p>
+            {c.communityStat && (
+              <>
+                <p className="font-pixel text-7xl leading-none text-orange">{c.communityStat}</p>
+                <p className="mt-1 text-sm font-bold uppercase tracking-widest">{c.communityStatLabel}</p>
+              </>
+            )}
+            <p className={`${c.communityStat ? "mt-8" : ""} text-2xl font-extrabold leading-snug`}>{c.communityQuote}</p>
             <p className="mt-6 text-sm font-bold underline decoration-orange decoration-2">
               {c.communityLinkText}
             </p>
@@ -174,32 +188,18 @@ export default function StaticHome({ site, c }: { site: Defaults["site"]; c: Def
             <h2 className="font-pixel text-[clamp(2.5rem,7vw,5.5rem)] leading-[0.9]">{c.closeTitle}</h2>
             <p className="mt-5 max-w-xl text-lg font-semibold">{c.closeBody}</p>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-              <Btn href="/apply" variant="ink">
-                Apply now
+              <Btn href={site.registerUrl} variant="ink" external>
+                {site.registerLabel}
               </Btn>
               <Btn href="/journey" variant="line">
                 See the journey
               </Btn>
             </div>
           </div>
-          <a
-            href={site.partnerUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            aria-label={`${site.partnerName}, ${site.partnerLabel} (opens in new tab)`}
-            className="block bg-paper p-6 text-center"
-          >
-            <p className="mb-3 text-xs font-bold uppercase tracking-widest text-muted">
-              {site.partnerLabel}
-            </p>
-            <Image
-              src={site.partnerLogo}
-              alt={site.partnerName}
-              width={120}
-              height={120}
-              className="mx-auto size-28 object-cover mix-blend-multiply"
-            />
-          </a>
+          <div className="bg-paper p-6">
+            <p className="mb-3 text-xs font-bold uppercase tracking-widest text-muted">Sponsors</p>
+            <SponsorList sponsors={sponsors} className="flex-col !items-start gap-y-1.5 text-lg" />
+          </div>
         </div>
       </Section>
     </>

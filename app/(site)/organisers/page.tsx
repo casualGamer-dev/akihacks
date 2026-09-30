@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Image from "next/image";
-import { Page, Section } from "@/components/ui";
+import { Btn, Page, Section } from "@/components/ui";
 import { getContent } from "@/lib/content";
 
 export const metadata: Metadata = { title: "Organisers" };
@@ -13,9 +13,29 @@ const initials = (n: string) =>
     .slice(0, 2);
 
 export default async function Organisers() {
-  const c = await getContent("organisers");
+  const [c, site] = await Promise.all([getContent("organisers"), getContent("site")]);
   return (
     <Page title={c.title} lead={c.lead}>
+      <Section className="bg-paper-2">
+        <div className="flex flex-col justify-between gap-6 sm:flex-row sm:items-center">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-widest text-orange-ink">Organised by</p>
+            <h2 className="mt-1 text-4xl font-extrabold">{site.organizerName}</h2>
+          </div>
+          <div className="flex flex-wrap gap-3">
+            {site.linkedinUrl && (
+              <Btn href={site.linkedinUrl} variant="ink" external>
+                LinkedIn
+              </Btn>
+            )}
+            {site.instagramUrl && (
+              <Btn href={site.instagramUrl} variant="line" external>
+                Instagram
+              </Btn>
+            )}
+          </div>
+        </div>
+      </Section>
       <Section>
         <ul className="grid gap-x-8 gap-y-10 sm:grid-cols-2 lg:grid-cols-3">
           {c.people.map((p, i) => {

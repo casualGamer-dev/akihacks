@@ -4,7 +4,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { links, Wordmark } from "./site";
 
-export default function Nav() {
+export default function Nav({ registerUrl, registerLabel }: { registerUrl: string; registerLabel: string }) {
   const path = usePathname();
   const [open, setOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
@@ -44,12 +44,14 @@ export default function Nav() {
         </nav>
 
         <div className="flex items-center gap-3">
-          <Link
-            href="/apply"
+          <a
+            href={registerUrl}
+            target="_blank"
+            rel="noopener noreferrer"
             className="hidden bg-orange px-5 py-2.5 text-[13px] font-bold tracking-wide text-ink transition-colors hover:bg-ink hover:text-paper sm:inline-flex"
           >
-            Apply
-          </Link>
+            {registerLabel}
+          </a>
           <button
             type="button"
             className="grid size-10 place-items-center border border-ink lg:hidden"
@@ -72,8 +74,8 @@ export default function Nav() {
       {open && (
         <nav id="mobile-nav" aria-label="Mobile" className="border-t border-line bg-paper lg:hidden">
           <ul className="mx-auto max-w-7xl px-5 py-3 sm:px-8">
-            {[...links, { href: "/apply", label: "Apply" }].map((l) => (
-              <li key={l.href} className="border-b border-line last:border-0">
+            {links.map((l) => (
+              <li key={l.href} className="border-b border-line">
                 <Link
                   href={l.href}
                   onClick={() => setOpen(false)}
@@ -83,6 +85,17 @@ export default function Nav() {
                 </Link>
               </li>
             ))}
+            <li>
+              <a
+                href={registerUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={() => setOpen(false)}
+                className="block py-3.5 text-lg font-bold text-orange-ink"
+              >
+                {registerLabel} ↗
+              </a>
+            </li>
           </ul>
         </nav>
       )}

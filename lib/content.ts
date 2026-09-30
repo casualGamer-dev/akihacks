@@ -14,13 +14,14 @@ export const defaults = {
     date: "To be announced",
     venue: "To be announced",
     footerBlurb: "Build Solutions. Break Barriers. First edition, India-based, innovation-first.",
-    email: "soham@blobly.in",
-    supportEmail: "support@blobly.in",
-    partnerLabel: "Official event partner",
-    partnerName: "Blobly",
-    partnerLogo: "/blobly.jpeg",
-    partnerUrl: "https://blobly.in",
+    email: "tamanashdas@hotmail.com",
+    supportEmail: "support@akihacks.xyz",
     partnerFormUrl: "https://forms.gle/FCEHhPQ8z7gqiyVNA",
+    registerUrl: "https://events.mlh.com/events/15183-hacktoberfest-hack-day-kolkata-x-aki-hacks",
+    registerLabel: "Register now",
+    organizerName: "Caltech Circle",
+    linkedinUrl: "https://www.linkedin.com/company/caltechcircle/",
+    instagramUrl: "https://www.instagram.com/caltechcircle/",
   },
   home: {
     dayZeroTitle: "Welcome to Day Zero.",
@@ -58,13 +59,12 @@ export const defaults = {
     ],
     communityTitle: "Before AKI HACKS, we built a community.",
     communityBody:
-      "Miro Meetups Kolkata became a two-day experience on March 23–24, 2026, across ZIOKS and Techno India University, bringing together 100+ student developers, creators, and innovators around product-first thinking, structured ideation, and real-world problem solving.",
+      "Caltech Circle hosted a two-day experience on March 23–24, 2026, across ZIOKS and Techno India University, bringing together 100+ student developers, creators, and innovators around product-first thinking, structured ideation, and real-world problem solving.",
     communityPunch:
       "That showed us what Kolkata's builders can do when they come together. AKI HACKS is the next chapter.",
     communityStat: "100+",
     communityStatLabel: "builders in the room",
-    communityQuote:
-      "“TIU Hosts Miro Meetups Kolkata, Igniting a Product-First Innovation Movement”",
+    communityQuote: "Techno Times covered the two-day experience.",
     communityLinkText: "Read the Techno Times story ↗",
     communityLinkUrl:
       "https://technotimes.info/index.php/2026/04/01/tiu-hosts-miro-meetups-kolkata-igniting-a-product-first-innovation-movement/",
@@ -130,8 +130,11 @@ export const defaults = {
   sponsors: {
     title: "Sponsors & partners.",
     lead: "Empowering innovation, accessibility, and the next generation of builders in Kolkata.",
-    partnerButton: "Visit Blobly",
-    others: [] as { name: string; tier: string; logo: string; url: string }[],
+    others: [
+      { name: "ElevenLabs", tier: "Sponsor", logo: "", url: "" },
+      { name: ".xyz Domains", tier: "Sponsor", logo: "", url: "" },
+      { name: "Osen", tier: "Sponsor", logo: "", url: "" },
+    ] as { name: string; tier: string; logo: string; url: string }[],
     moreTitle: "More partners, soon.",
     moreBody:
       "We're actively onboarding community organisations, tooling partners, and sponsors. If that could be you, start with the form.",
@@ -147,20 +150,8 @@ export const defaults = {
       { q: "How are projects judged?", a: "Innovation carries the most weight, followed by technical execution. Business viability is considered too, but it counts least." },
       { q: "Is AKI HACKS a Japanese hackathon?", a: "No. AKI HACKS is an India-based hackathon. Aki / 秋 means autumn in Japanese. We thought “Autumn Hacks” sounded a little boring, so we chose AKI HACKS." },
       { q: "How can I volunteer, or join the core team?", a: "We're building the community around AKI HACKS and will open volunteer and core-team applications. Forms are releasing soon." },
-      { q: "When and where is it?", a: "Kolkata, October 2026. Date and venue are to be announced. Apply to get notified first." },
+      { q: "When and where is it?", a: "Kolkata, October 2026. Date and venue are to be announced. Register to get updates first." },
     ],
-  },
-  apply: {
-    title: "Applications open soon.",
-    lead: "Registrations for AKI HACKS 2026 are being prepared. Email us and we'll tell you the second they go live.",
-    notifyTitle: "Get notified",
-    notifyBody:
-      "Send us a note with your name, college, and your team's details. We'll email you when applications open.",
-    notifyCta: "Email us to get notified",
-    applyUrl: "",
-    soloTitle: "Teams of 2–4.",
-    soloBody:
-      "Bring your own team. We're looking for people who like building hard things: a strong technical skill and the drive to try something new. You don't need a finished idea.",
   },
   contact: {
     title: "Need help?",

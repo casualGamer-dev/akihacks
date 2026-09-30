@@ -5,7 +5,7 @@ import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
 import type { RefObject } from "react";
 import { STOPS, stopZ } from "@/lib/journey";
-import { CHZ, clamp, heightAt, pieces, RIDGES, riverX, rng, ss, vnoise, ZMIN, type ChunkPiece, type Piece } from "@/lib/worldgen";
+import { CHZ, clamp, heightAt, NCH, pieces, RIDGES, riverX, rng, ss, vnoise, ZMIN, type ChunkPiece, type Piece } from "@/lib/worldgen";
 
 export type Quality = "high" | "low";
 
@@ -365,34 +365,120 @@ function buildWorld(q: Quality, U: Uniforms) {
     return mat;
   });
 
-  // terrain
-  const [sx, sz] = hi ? [200, 200] : [120, 120];
-  const tg = new THREE.PlaneGeometry(280, 240, sx, sz);
-  tg.rotateX(-Math.PI / 2);
-  tg.translate(0, 0, -80);
-  const pos = tg.attributes.position;
-  const colors = new Float32Array(pos.count * 3);
-  const P = {
+  // terrain: one mesh per river slice, only while the boat is near it, at one of three levels of detail.
+  // The grid follows the river (dense at the banks where the shape is, sparse toward the far edges), and each slice
+  // gets a skirt so the tiny gaps between neighbours of different detail never show.
+  const TP = {
     a: col("#a3ab45"), b: col("#cdb752"), litter: col("#dc7a3a"), sand: col("#e0cda2"),
     bed: col("#5f8c95"), forest: col("#9c5a33"), olive: col("#7c7d3c"),
   };
-  const c = new THREE.Color();
-  for (let i = 0; i < pos.count; i++) {
-    const x = pos.getX(i), z = pos.getZ(i);
-    const h = heightAt(x, z);
-    pos.setY(i, h);
-    const d = Math.abs(x - riverX(z));
-    const n = vnoise(x * 0.08, z * 0.08), n2 = vnoise(x * 0.2 + 11, z * 0.2);
-    c.copy(P.a).lerp(P.b, n);
-    if (n2 > 0.62) c.lerp(P.litter, clamp((n2 - 0.62) * 2.2));
-    c.lerp(n > 0.5 ? P.forest : P.olive, ss(3, 9, h) * 0.8);
-    c.lerp(P.sand, 1 - ss(4.6, 6, d));
-    c.lerp(P.bed, 1 - ss(3, 4.4, d));
-    c.toArray(colors, i * 3);
-  }
-  tg.setAttribute("color", new THREE.BufferAttribute(colors, 3));
-  tg.computeVertexNormals();
-  group.add(new THREE.Mesh(tg, new THREE.MeshToonMaterial({ vertexColors: true, gradientMap: ramp })));
+  const TL = hi
+    ? [{ dz: 1.2, half: 40 }, { dz: 2.5, half: 24 }, { dz: 5, half: 14 }]
+    : [{ dz: 2, half: 26 }, { dz: 4, half: 16 }, { dz: 6.7, half: 10 }];
+  const tcol = new THREE.Color();
+  const terrainMat = new THREE.MeshToonMaterial({ vertexColors: true, gradientMap: ramp, side: THREE.DoubleSide });
+  const mkTerrain = (ci: number, lod: number) => {
+    const z0 = ZMIN + ci * CHZ;
+    const { dz, half } = TL[lod];
+    const rows = Math.max(1, Math.round(CHZ / dz));
+    const cols = half * 2 + 1;
+    const nv = (rows + 1) * cols;
+    const total = nv + 2 * cols; // + two skirt rows
+    const pos = new Float32Array(total * 3), nor = new Float32Array(total * 3), colr = new Float32Array(total * 3);
+    const E = 0.6;
+    for (let r = 0; r <= rows; r++) {
+      const z = z0 + (CHZ * r) / rows;
+      const rx = riverX(z);
+      for (let j = 0; j < cols; j++) {
+        const t = (j - half) / half;
+        const u = 150 * Math.sign(t) * Math.pow(Math.abs(t), 1.8);
+        const x = rx + u;
+        const h = heightAt(x, z);
+        const i = r * cols + j;
+        pos[i * 3] = x;
+        pos[i * 3 + 1] = h;
+        pos[i * 3 + 2] = z;
+        // normal from the height field itself, so slices and detail levels shade identically along shared edges
+        const hx = (heightAt(x + E, z) - heightAt(x - E, z)) / (2 * E);
+        const hz = (heightAt(x, z + E) - heightAt(x, z - E)) / (2 * E);
+        const nl = Math.hypot(hx, 1, hz);
+        nor[i * 3] = -hx / nl;
+        nor[i * 3 + 1] = 1 / nl;
+        nor[i * 3 + 2] = -hz / nl;
+        const d = Math.abs(u);
+        const n = vnoise(x * 0.08, z * 0.08), n2 = vnoise(x * 0.2 + 11, z * 0.2);
+        tcol.copy(TP.a).lerp(TP.b, n);
+        if (n2 > 0.62) tcol.lerp(TP.litter, clamp((n2 - 0.62) * 2.2));
+        tcol.lerp(n > 0.5 ? TP.forest : TP.olive, ss(3, 9, h) * 0.8);
+        tcol.lerp(TP.sand, 1 - ss(4.6, 6, d));
+        tcol.lerp(TP.bed, 1 - ss(3, 4.4, d));
+        tcol.toArray(colr, i * 3);
+      }
+    }
+    // skirts: the first and last rows repeated 3 units lower
+    for (let k = 0; k < 2; k++) {
+      const src = k === 0 ? 0 : rows * cols;
+      const dst = nv + k * cols;
+      for (let j = 0; j < cols; j++)
+        for (let q = 0; q < 3; q++) {
+          pos[(dst + j) * 3 + q] = pos[(src + j) * 3 + q] - (q === 1 ? 3 : 0);
+          nor[(dst + j) * 3 + q] = nor[(src + j) * 3 + q];
+          colr[(dst + j) * 3 + q] = colr[(src + j) * 3 + q];
+        }
+    }
+    const idx: number[] = [];
+    for (let r = 0; r < rows; r++)
+      for (let j = 0; j < cols - 1; j++) {
+        const a = r * cols + j, b = a + cols;
+        idx.push(a, b, a + 1, a + 1, b, b + 1);
+      }
+    for (let k = 0; k < 2; k++) {
+      const top = k === 0 ? 0 : rows * cols;
+      const low = nv + k * cols;
+      for (let j = 0; j < cols - 1; j++) idx.push(top + j, low + j, top + j + 1, top + j + 1, low + j, low + j + 1);
+    }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute("position", new THREE.BufferAttribute(pos, 3));
+    g.setAttribute("normal", new THREE.BufferAttribute(nor, 3));
+    g.setAttribute("color", new THREE.BufferAttribute(colr, 3));
+    g.setIndex(idx);
+    return g;
+  };
+  const T_AHEAD = 230, T_BEHIND = 50; // terrain reaches to the far mountains; the far end is cheap (coarsest level)
+  const terrainLive = new Map<number, { mesh: THREE.Mesh; lod: number }>();
+  /** Per frame: drop slices out of range, (re)build at most `budget` slices whose detail level changed. Returns how many it built. */
+  const syncTerrain = (boatZ: number, budget = 2) => {
+    let built = 0;
+    for (let ci = 0; ci < NCH; ci++) {
+      const zc = ZMIN + (ci + 0.5) * CHZ;
+      const inRange = zc <= boatZ + T_BEHIND + CHZ && zc >= boatZ - T_AHEAD - CHZ;
+      const cur = terrainLive.get(ci);
+      if (!inRange) {
+        if (cur) {
+          group.remove(cur.mesh);
+          cur.mesh.geometry.dispose();
+          terrainLive.delete(ci);
+        }
+        continue;
+      }
+      const dist = Math.abs(zc - boatZ);
+      const lod = dist < 45 ? 0 : dist < 100 ? 1 : 2;
+      if (cur && cur.lod === lod) continue;
+      if (built >= budget) continue;
+      if (cur) {
+        cur.mesh.geometry.dispose();
+        cur.mesh.geometry = mkTerrain(ci, lod);
+        cur.lod = lod;
+      } else {
+        const mesh = new THREE.Mesh(mkTerrain(ci, lod), terrainMat);
+        group.add(mesh);
+        terrainLive.set(ci, { mesh, lod });
+      }
+      built++;
+    }
+    return built;
+  };
+  syncTerrain(stopZ(0), NCH); // the first view is ready immediately
 
   // river
   const wg = new THREE.PlaneGeometry(280, 240);
@@ -470,7 +556,7 @@ function buildWorld(q: Quality, U: Uniforms) {
     return cg;
   };
 
-  const trunkGeo = new THREE.CylinderGeometry(0.6, 1, 1, 6);
+  const trunkGeo = new THREE.CylinderGeometry(0.6, 1, 1, 5, 1, true);
   trunkGeo.translate(0, 0.5, 0);
   const trunkMat = new THREE.MeshToonMaterial({ color: "#5a3a2a", gradientMap: ramp });
 
@@ -517,7 +603,8 @@ function buildWorld(q: Quality, U: Uniforms) {
 
   // meadow grass: one draw per river slice, wind + pointer brushing on the GPU
   const gw = 0.05;
-  const gIndex = [0, 1, 2, 2, 1, 3, 2, 3, 4];
+  const gQuad = new THREE.BufferAttribute(new Uint16Array([0, 1, 2, 2, 1, 3, 2, 3, 4]), 1); // near: tapered blade, 3 triangles
+  const gTri = new THREE.BufferAttribute(new Uint16Array([0, 1, 4]), 1); // far: base to tip, 1 triangle
   const gPos = new THREE.Float32BufferAttribute([-gw, 0, 0, gw, 0, 0, -gw * 0.75, 0.45, 0, gw * 0.75, 0.45, 0, 0, 1, 0], 3);
   const grassMat = shader(
     GRASS_F,
@@ -531,7 +618,7 @@ function buildWorld(q: Quality, U: Uniforms) {
   );
   const mkGrass = (off: Float32Array, par: Float32Array, n: number, sphere: THREE.Sphere) => {
     const gg = new THREE.InstancedBufferGeometry();
-    gg.setIndex(gIndex);
+    gg.setIndex(gQuad);
     gg.setAttribute("position", gPos);
     gg.setAttribute("aOff", new THREE.InstancedBufferAttribute(off, 3));
     gg.setAttribute("aPar", new THREE.InstancedBufferAttribute(par, 4));
@@ -874,10 +961,15 @@ function buildWorld(q: Quality, U: Uniforms) {
   const updateLOD = (camZ: number) => {
     for (const c of canopyChunks)
       c.geo.instanceCount = Math.max(1, Math.floor(c.total * (1 - 0.72 * sst(35, 95, Math.abs(c.zc - camZ))) * Math.max(detail, 0.85)));
-    for (const c of grassChunks)
-      c.geo.instanceCount = Math.max(1, Math.floor(c.total * (1 - 0.8 * sst(25, 70, Math.abs(c.zc - camZ))) * Math.max(detail, 0.5)));
+    for (const c of grassChunks) {
+      const d = Math.abs(c.zc - camZ);
+      c.geo.instanceCount = Math.max(1, Math.floor(c.total * (1 - 0.8 * sst(25, 70, d)) * Math.max(detail, 0.5)));
+      const want = d > 55 ? gTri : gQuad;
+      if (c.geo.index !== want) c.geo.setIndex(want);
+    }
   };
-  return { group, dispose, setDetail, updateLOD, placeBoat, boatPos, addPiece, storeChunk, syncSlices };
+  const stats = () => ({ live: live.size, stored: stored.size, ground: terrainLive.size });
+  return { group, dispose, setDetail, updateLOD, placeBoat, boatPos, addPiece, storeChunk, syncSlices, syncTerrain, stats };
 }
 
 /* ----------------------------------------------------------------------------
@@ -890,13 +982,20 @@ function World({
   quality,
   maxDpr,
   onReady,
+  onProgress,
+  onGiveUp,
   story,
   paused,
 }: {
   quality: Quality;
   maxDpr: number;
   paused: boolean;
+  /** Fires once everything is streamed in and built: the poster can go. */
   onReady: () => void;
+  /** 0..1 while the world streams in. */
+  onProgress?: (fraction: number) => void;
+  /** Frame rate stayed under ~20fps even at the lowest settings: the caller should switch to the still image. */
+  onGiveUp?: () => void;
   /** The boat trip: target stop to sail to, and a callback on arrival. Absent = the still hero. */
   story?: RefObject<{ target: number; onArrive: () => void }>;
 }) {
@@ -913,6 +1012,10 @@ function World({
   const shownRef = useRef(false);
   const queue = useRef<Piece[]>([]);
   const fallback = useRef<Generator<Piece> | null>(null);
+  const genMode = useRef("worker"); // where the world is generated: "worker", or "main" if the worker could not start
+  const streamDone = useRef(false); // every piece has been received (worker said "done", or the fallback generator ended)
+  const handled = useRef(0);
+  const TOTAL = 1 + RIDGES.length + NCH; // cloud + ridges + slices
   useEffect(() => {
     let dead = false;
     const hi = quality === "high";
@@ -927,12 +1030,16 @@ function World({
     let received = 0;
     let worker: Worker | null = null;
     const fallBackToMainThread = () => {
-      if (received === 0) fallback.current = pieces(hi); // worker died before delivering anything: generate here, a piece per frame
+      if (received === 0) {
+        genMode.current = "main";
+        fallback.current = pieces(hi);
+      } // worker died before delivering anything: generate here, a piece per frame
     };
     try {
       worker = new Worker(new URL("../lib/world.worker.ts", import.meta.url));
       worker.onmessage = (e: MessageEvent<Piece | { k: "done" }>) => {
-        if (e.data.k !== "done") {
+        if (e.data.k === "done") streamDone.current = true;
+        else {
           received++;
           queue.current.push(e.data as Piece);
         }
@@ -951,6 +1058,8 @@ function World({
       worker?.terminate();
       queue.current = [];
       fallback.current = null;
+      streamDone.current = false;
+      handled.current = 0;
     };
   }, [world, quality, gl, camera, scene]);
   useEffect(() => {
@@ -973,7 +1082,7 @@ function World({
   );
   const invalidate = useThree((s) => s.invalidate);
   const perfEl = useRef<HTMLPreElement | null>(null);
-  const st = useRef({ lastBuild: 0, pf: 0, pt: 0, seg: 0, from: 0, to: 0, tt: 0, dur: 1, sailing: false, ripple: 0, t: 0, gust: 0, lastGust: -99, wind: 0, active: false, frames: 0, acc: 0, n: 0, dpr: maxDpr, detail: 1 });
+  const st = useRef({ js: 0, bad: 0, shownAt: 0, revealed: false, lastBuild: 0, pf: 0, pt: 0, seg: 0, from: 0, to: 0, tt: 0, dur: 1, sailing: false, ripple: 0, t: 0, gust: 0, lastGust: -99, wind: 0, active: false, frames: 0, acc: 0, n: 0, dpr: maxDpr, detail: 1 });
 
   useEffect(() => {
     st.current.dpr = Math.min(window.devicePixelRatio || 1, maxDpr);
@@ -1037,6 +1146,7 @@ function World({
   }, []);
 
   useFrame(({ size, viewport }, rawDt) => {
+    const jsStart = performance.now();
     const s = st.current;
     const dt = Math.min(rawDt, 0.05);
     s.t += dt;
@@ -1106,9 +1216,13 @@ function World({
       s.pt += rawDt;
       if (s.pt > 0.5) {
         const r = gl.info.render;
-        perfEl.current.textContent = `${Math.round(s.pf / s.pt)} fps · ${r.calls} calls · ${Math.round(r.triangles / 1000)}k tris · dpr ${viewport.dpr.toFixed(2)} · detail ${s.detail.toFixed(2)}${story && !s.sailing ? " · parked" : ""}`;
+        const w = world.stats();
+        perfEl.current.textContent =
+          `${Math.round(s.pf / s.pt)} fps · js ${(s.js / s.pf).toFixed(1)}ms/frame · ${r.calls} calls · ${Math.round(r.triangles / 1000)}k tris\n` +
+          `dpr ${viewport.dpr.toFixed(2)} · detail ${s.detail.toFixed(2)} · slices ${w.live}/${w.stored} ground ${w.ground} · gen ${genMode.current} · ${quality}${story && !s.sailing ? " · parked" : ""}`;
         s.pf = 0;
         s.pt = 0;
+        s.js = 0;
       }
     }
 
@@ -1123,24 +1237,46 @@ function World({
 
     // stream in one piece (clouds, ridges, then a river slice) per frame
     if (shownRef.current) {
-      const p = queue.current.shift() ?? (fallback.current?.next().value as Piece | undefined);
+      let p = queue.current.shift();
+      if (!p && fallback.current) {
+        const r = fallback.current.next();
+        if (r.done) streamDone.current = true;
+        else p = r.value;
+      }
       if (p) {
         if (p.k === "chunk") world.storeChunk(p);
         else world.addPiece(p);
+        onProgress?.(Math.min(1, ++handled.current / TOTAL));
       }
-      const built = world.syncSlices(world.boatPos(s.seg).z);
-      if (p || built) s.lastBuild = s.frames;
+      const bz = world.boatPos(s.seg).z;
+      const built = world.syncSlices(bz);
+      const ground = world.syncTerrain(bz);
+      if (p || built || ground) s.lastBuild = s.frames;
     }
 
-    // first frames rendered: reveal
-    if (shownRef.current && ++s.frames === 3) onReady();
+    // reveal once the whole scene is in: all pieces received, all slices in range built, a few frames rendered since
+    if (shownRef.current) {
+      if (!s.frames) s.shownAt = performance.now();
+      s.frames++;
+      const complete = streamDone.current && queue.current.length === 0 && s.frames - s.lastBuild > 4;
+      if (!s.revealed && (complete || performance.now() - s.shownAt > 20000)) { // 20s cap: never leave the poster up forever
+        s.revealed = true;
+        onReady();
+      }
+    }
 
-    // adaptive resolution: step down if the device can't hold ~48fps
-    if (rawDt < 0.25 && s.frames > 60 && s.frames - s.lastBuild > 90 && !(story && !s.sailing)) {
+    // adaptive quality: sample the frame rate in 1.5s windows once streaming has settled
+    if (rawDt < 0.25 && s.frames > 60 && s.frames - s.lastBuild > 90) {
+      const parked = !!story && !s.sailing; // parked frames are capped at ~30fps on purpose
       s.acc += rawDt;
       s.n++;
       if (s.acc > 1.5) {
-        if (s.n / s.acc < 48) {
+        const fps = s.n / s.acc;
+        // far under budget three windows in a row (at the lowest resolution): this device can't run the scene
+        if (fps < (parked ? 12 : 20) && (parked || s.dpr <= 0.75)) {
+          if (++s.bad >= 3) onGiveUp?.();
+        } else s.bad = 0;
+        if (!parked && fps < 48) {
           if (s.dpr > 0.75) {
             s.dpr = Math.max(0.75, s.dpr - 0.25);
             setDpr(s.dpr);
@@ -1153,6 +1289,7 @@ function World({
         s.n = 0;
       }
     }
+    s.js += performance.now() - jsStart;
   });
 
   return shown ? <primitive object={world.group} /> : null;
@@ -1162,11 +1299,15 @@ export default function ValleyScene({
   quality,
   paused,
   onReady,
+  onProgress,
+  onGiveUp,
   story,
 }: {
   quality: Quality;
   paused: boolean;
   onReady: () => void;
+  onProgress?: (fraction: number) => void;
+  onGiveUp?: () => void;
   story?: RefObject<{ target: number; onArrive: () => void }>;
 }) {
   const maxDpr = quality === "high" ? 1.5 : 1.25;
@@ -1184,7 +1325,7 @@ export default function ValleyScene({
     >
       <hemisphereLight args={["#d6e6fb", "#c79a62", 1.6]} />
       <directionalLight position={[70, 55, -10]} intensity={1.7} color="#fff0db" />
-      <World quality={quality} maxDpr={maxDpr} onReady={onReady} story={story} paused={paused} />
+      <World quality={quality} maxDpr={maxDpr} onReady={onReady} onProgress={onProgress} onGiveUp={onGiveUp} story={story} paused={paused} />
     </Canvas>
   );
 }

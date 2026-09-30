@@ -3,7 +3,7 @@ import Footer from "@/components/Footer";
 import { getContent } from "@/lib/content";
 
 export default async function SiteLayout({ children }: LayoutProps<"/">) {
-  const site = await getContent("site");
+  const [site, sponsors] = await Promise.all([getContent("site"), getContent("sponsors")]);
   return (
     <>
       <a
@@ -12,11 +12,11 @@ export default async function SiteLayout({ children }: LayoutProps<"/">) {
       >
         Skip to main content
       </a>
-      <Nav />
+      <Nav registerUrl={site.registerUrl} registerLabel={site.registerLabel} />
       <main id="main" className="flex-1">
         {children}
       </main>
-      <Footer site={site} />
+      <Footer site={site} sponsors={sponsors.others} />
     </>
   );
 }

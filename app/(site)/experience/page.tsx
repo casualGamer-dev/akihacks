@@ -5,7 +5,7 @@ import { getContent } from "@/lib/content";
 export const metadata: Metadata = { title: "Experience" };
 
 export default async function Experience() {
-  const c = await getContent("experience");
+  const [c, site] = await Promise.all([getContent("experience"), getContent("site")]);
   return (
     <Page title={c.title} lead={c.lead}>
       <Section tone="ink">
@@ -52,8 +52,8 @@ export default async function Experience() {
       <Section tone="orange">
         <div className="flex flex-col justify-between gap-6 sm:flex-row sm:items-center">
           <h2 className="font-pixel text-4xl leading-none sm:text-6xl">{c.ctaTitle}</h2>
-          <Btn href="/apply" variant="ink">
-            Apply
+          <Btn href={site.registerUrl} variant="ink" external>
+            {site.registerLabel}
           </Btn>
         </div>
       </Section>

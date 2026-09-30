@@ -3,6 +3,7 @@ import dynamic from "next/dynamic";
 import Image from "next/image";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import type { Defaults } from "@/lib/content";
+import SponsorList from "../SponsorList";
 import { STOPS } from "@/lib/journey";
 import type { Quality } from "../ValleyScene";
 import { Btn, Fact } from "../ui";
@@ -22,18 +23,24 @@ const btn =
 export default function Story({
   site,
   c,
+  sponsors,
   quality,
+  onGiveUp,
 }: {
   site: Defaults["site"];
   c: Defaults["home"];
+  sponsors: Defaults["sponsors"]["others"];
   quality: Quality;
+  onGiveUp: () => void;
 }) {
   const stage = useRef<HTMLDivElement>(null);
   const sail = useRef({ target: 0, onArrive: () => {} });
+  const readyRef = useRef(false);
   const [stop, setStop] = useState(0);
   const [moving, setMoving] = useState(false);
   const [visible, setVisible] = useState(true);
   const [ready, setReady] = useState(false);
+  const [loaded, setLoaded] = useState(0); // 0..1 while the valley streams in
 
   useEffect(() => {
     sail.current.onArrive = () => setMoving(false);
@@ -51,7 +58,7 @@ export default function Story({
   }, []);
 
   const goTo = useCallback((i: number) => {
-    if (i < 0 || i > LAST || i === sail.current.target) return;
+    if (!readyRef.current || i < 0 || i > LAST || i === sail.current.target) return;
     sail.current.target = i;
     setStop(i);
     setMoving(true);
@@ -122,12 +129,13 @@ export default function Story({
       <div className="mt-6 flex flex-wrap gap-3">
         <button
           onClick={() => goTo(1)}
-          className={`${btn} bg-orange text-ink hover:bg-ink hover:text-paper`}
+          disabled={!ready}
+          className={`${btn} bg-orange text-ink hover:bg-ink hover:text-paper disabled:cursor-wait disabled:opacity-60`}
         >
-          Set sail <span aria-hidden>→</span>
+          {ready ? "Set sail" : "Loading…"} <span aria-hidden>→</span>
         </button>
-        <Btn href="/apply" variant="line">
-          Apply now
+        <Btn href={site.registerUrl} variant="line" external>
+          {site.registerLabel}
         </Btn>
       </div>
       <dl className="mt-6 grid max-w-md grid-cols-2 gap-4 border-t-2 border-ink pt-4 [@media(max-height:680px)]:hidden">
@@ -202,9 +210,13 @@ export default function Story({
         rel="noopener noreferrer"
         className="mt-5 block border-2 border-ink p-4 transition-colors hover:bg-ink hover:text-paper"
       >
-        <span className="font-pixel text-4xl leading-none text-orange">{c.communityStat}</span>
-        <span className="ml-3 text-xs font-bold uppercase tracking-widest">{c.communityStatLabel}</span>
-        <span className="mt-3 block text-base font-extrabold leading-snug">{c.communityQuote}</span>
+        {c.communityStat && (
+          <>
+            <span className="font-pixel text-4xl leading-none text-orange">{c.communityStat}</span>
+            <span className="ml-3 text-xs font-bold uppercase tracking-widest">{c.communityStatLabel}</span>
+          </>
+        )}
+        <span className={`${c.communityStat ? "mt-3" : ""} block text-base font-extrabold leading-snug`}>{c.communityQuote}</span>
         <span className="mt-2 block text-sm font-bold underline decoration-orange decoration-2">
           {c.communityLinkText}
         </span>
@@ -217,21 +229,17 @@ export default function Story({
       <h2 className="font-pixel text-4xl leading-[0.9] sm:text-6xl">{c.closeTitle}</h2>
       <p className="mt-4 text-base font-semibold sm:text-lg">{c.closeBody}</p>
       <div className="mt-5 flex flex-wrap gap-3">
-        <Btn href="/apply">Apply now</Btn>
+        <Btn href={site.registerUrl} external>
+          {site.registerLabel}
+        </Btn>
         <Btn href="/journey" variant="line">
           See the journey
         </Btn>
       </div>
-      <a
-        href={site.partnerUrl}
-        target="_blank"
-        rel="noopener noreferrer"
-        aria-label={`${site.partnerName}, ${site.partnerLabel} (opens in new tab)`}
-        className="mt-5 flex items-center gap-4 border-t-2 border-ink pt-4"
-      >
-        <Image src={site.partnerLogo} alt="" width={48} height={48} className="size-12 object-cover mix-blend-multiply" />
-        <span className="text-xs font-bold uppercase tracking-widest text-muted">{site.partnerLabel}</span>
-      </a>
+      <div className="mt-5 border-t-2 border-ink pt-4">
+        <p className="mb-2 text-xs font-bold uppercase tracking-widest text-muted">Sponsors</p>
+        <SponsorList sponsors={sponsors} className="text-base" />
+      </div>
       {controls(6)}
     </div>,
   ];
@@ -244,7 +252,17 @@ export default function Story({
         aria-hidden
         className={`absolute inset-0 transition-opacity duration-1000 ${ready ? "opacity-100" : "opacity-0"}`}
       >
-        <Valley quality={quality} paused={!visible} onReady={() => setReady(true)} story={sail} />
+        <Valley
+            quality={quality}
+            paused={!visible}
+            onReady={() => {
+              readyRef.current = true;
+              setReady(true);
+            }}
+            onProgress={setLoaded}
+            onGiveUp={onGiveUp}
+            story={sail}
+          />
       </div>
       <div
         aria-hidden
@@ -266,6 +284,18 @@ export default function Story({
           </div>
         );
       })}
+
+      {!ready && (
+        <div
+          role="status"
+          className="absolute bottom-6 left-1/2 w-56 -translate-x-1/2 bg-paper px-4 py-3 text-xs font-bold"
+        >
+          Loading the valley…
+          <div className="mt-2 h-1.5 bg-line">
+            <div className="h-full bg-orange transition-[width] duration-300" style={{ width: `${Math.round(loaded * 100)}%` }} />
+          </div>
+        </div>
+      )}
 
       {moving && (
         <p

@@ -10,68 +10,44 @@ export default async function Sponsors() {
   return (
     <Page title={c.title} lead={c.lead}>
       <Section>
-        <div className="grid items-center gap-10 border-2 border-ink p-8 sm:p-12 md:grid-cols-[auto_1fr]">
-          <Image
-            src={site.partnerLogo}
-            alt={`${site.partnerName} logo`}
-            width={200}
-            height={200}
-            className="size-40 object-cover mix-blend-multiply"
-          />
-          <div>
-            <p className="text-xs font-bold uppercase tracking-widest text-orange-ink">
-              {site.partnerLabel}
-            </p>
-            <h2 className="mt-2 text-4xl font-extrabold">{site.partnerName}</h2>
-            <div className="mt-6">
-              <Btn href={site.partnerUrl} variant="ink" external>
-                {c.partnerButton}
-              </Btn>
-            </div>
-          </div>
-        </div>
-
-        {c.others.length > 0 && (
-          <ul className="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {c.others.map((s, i) => {
-              const body = (
-                <>
-                  {s.logo && (
-                    <Image
-                      src={s.logo}
-                      alt={`${s.name} logo`}
-                      width={160}
-                      height={160}
-                      className="size-24 object-contain mix-blend-multiply"
-                    />
-                  )}
-                  {s.tier && (
-                    <p className="mt-4 text-xs font-bold uppercase tracking-widest text-orange-ink">
-                      {s.tier}
-                    </p>
-                  )}
-                  <p className="mt-1 text-2xl font-extrabold">{s.name}</p>
-                </>
-              );
-              return (
-                <li key={i} className="border-2 border-ink">
-                  {s.url ? (
-                    <a
-                      href={s.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="block p-6 transition-colors hover:bg-paper-2"
-                    >
-                      {body}
-                    </a>
-                  ) : (
-                    <div className="p-6">{body}</div>
-                  )}
-                </li>
-              );
-            })}
-          </ul>
-        )}
+        <ul className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          {c.others.map((s, i) => {
+            const body = (
+              <>
+                {s.logo && (
+                  <Image
+                    src={s.logo}
+                    alt={`${s.name} logo`}
+                    width={240}
+                    height={120}
+                    className="mb-5 h-20 w-auto max-w-full object-contain"
+                  />
+                )}
+                {s.tier && (
+                  <p className="text-xs font-bold uppercase tracking-widest text-orange-ink">{s.tier}</p>
+                )}
+                <p className="mt-1 text-3xl font-extrabold">{s.name}</p>
+                {s.url && <p className="mt-4 text-sm font-bold">Visit ↗</p>}
+              </>
+            );
+            return (
+              <li key={i} className="border-2 border-ink">
+                {s.url ? (
+                  <a
+                    href={s.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="block p-8 transition-colors hover:bg-paper-2"
+                  >
+                    {body}
+                  </a>
+                ) : (
+                  <div className="p-8">{body}</div>
+                )}
+              </li>
+            );
+          })}
+        </ul>
       </Section>
 
       <Section tone="ink">

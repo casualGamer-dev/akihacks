@@ -38,11 +38,12 @@ export const sections: Record<SectionId, { label: string; path: string; fields: 
       ta("footerBlurb", "Footer blurb"),
       email("email", "General email"),
       email("supportEmail", "Support email"),
-      t("partnerLabel", "Partner label"),
-      t("partnerName", "Partner name"),
-      img("partnerLogo", "Partner logo"),
-      url("partnerUrl", "Partner website"),
       url("partnerFormUrl", "'Partner with us' form URL"),
+      url("registerUrl", "Register button link (MLH page)"),
+      t("registerLabel", "Register button text"),
+      t("organizerName", "Organised by (community name)"),
+      url("linkedinUrl", "Organiser LinkedIn"),
+      url("instagramUrl", "Organiser Instagram"),
     ],
   },
   home: {
@@ -125,8 +126,7 @@ export const sections: Record<SectionId, { label: string; path: string; fields: 
     fields: [
       t("title", "Page title"),
       ta("lead", "Intro"),
-      t("partnerButton", "Main partner button text"),
-      list("others", "Other sponsors / partners", "name", [
+      list("others", "Sponsors (shown on the Sponsors page, home page and footer)", "name", [
         t("name", "Name"),
         t("tier", "Tier / label"),
         img("logo", "Logo"),
@@ -141,20 +141,6 @@ export const sections: Record<SectionId, { label: string; path: string; fields: 
     label: "FAQ",
     path: "/faq",
     fields: [t("title", "Page title"), list("items", "Questions", "q", [t("q", "Question"), ta("a", "Answer")])],
-  },
-  apply: {
-    label: "Apply page",
-    path: "/apply",
-    fields: [
-      t("title", "Page title"),
-      ta("lead", "Intro"),
-      t("notifyTitle", "Notify heading"),
-      ta("notifyBody", "Notify text"),
-      t("notifyCta", "Button text"),
-      url("applyUrl", "Application form URL (leave empty to use the email button)"),
-      t("soloTitle", "Solo box heading"),
-      ta("soloBody", "Solo box text"),
-    ],
   },
   contact: {
     label: "Contact page",
