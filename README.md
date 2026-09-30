@@ -1,36 +1,24 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# AKI HACKS 2026
 
-## Getting Started
+Next.js site for akihacks.xyz with a Supabase-backed admin at `/admin`.
 
-First, run the development server:
+## Setup
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+1. `npm install`
+2. Copy `.env.example` to `.env` and fill it in.
+3. Run `supabase/schema.sql` in the Supabase SQL editor (safe to re-run; run it again after pulling updates).
+4. `npm run dev`, then open `/admin`.
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Admin
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+- Sign in with an email in `ADMIN_EMAILS` plus `ADMIN_PASSWORD` (owner). Owners add more admins under **Admins & account**; those sign in with their own email and password (scrypt-hashed in `admin_users`).
+- Five wrong passwords lock an email+IP for 15 minutes.
+- Every save is kept in `site_content_history` (last 50 per section) and can be loaded back from **History**. Two people editing the same section get a conflict warning instead of overwriting each other.
+- Links and emails are validated; photos must be uploaded (PNG/JPEG/WebP/GIF, 5 MB) so `next/image` never meets an unknown host. A photo that is on the site can't be deleted.
+- The browser never talks to Supabase: everything goes through server actions using `SUPABASE_SERVICE_ROLE_KEY`.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## How content works
 
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- Launch copy lives in `lib/content.ts` (`defaults`). Rows in `site_content` override it per section.
+- The admin forms are generated from `lib/schema.ts`. Adding an editable field = add it to `defaults` and `lib/schema.ts`, then use it in the page.
+- Phones and reduced-motion users get the image hero and plain sections; desktops get the 3D boat journey.

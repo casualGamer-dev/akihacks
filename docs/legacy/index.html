@@ -1,0 +1,1748 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AKI HACKS 2026 — Build Solutions. Break Barriers.</title>
+    <meta name="description" content="An India-based startup-style innovation hackathon. Kolkata · October 2026." />
+    <link rel="icon" type="image/png" href="logo.png" />
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+        href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Noto+Serif+JP:wght@400;700&display=swap"
+        rel="stylesheet" />
+
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        aki: {
+                            orange: '#F25D27',
+                            dark: '#070A0E',
+                            bg: '#FFFFFF',
+                            muted: '#64748B',
+                            border: '#E2E8F0',
+                            surface: '#F8FAFC'
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+                        jp: ['"Noto Serif JP"', 'serif']
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        /* Strict No-Glow & Clean Rendering */
+        * {
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+            box-shadow: none !important;
+            text-shadow: none !important;
+            filter: none !important;
+        }
+
+        :focus-visible {
+            outline: 2px solid #F25D27 !important;
+            outline-offset: 3px !important;
+        }
+
+        /* Ambient Sakura Animation */
+        @keyframes floatPetal {
+            0% {
+                transform: translate(0, -10px) rotate(0deg);
+                opacity: 0;
+            }
+
+            15% {
+                opacity: 0.35;
+            }
+
+            85% {
+                opacity: 0.35;
+            }
+
+            100% {
+                transform: translate(80px, 450px) rotate(180deg);
+                opacity: 0;
+            }
+        }
+
+        .petal-ambient {
+            position: absolute;
+            pointer-events: none;
+            animation: floatPetal 16s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .petal-ambient {
+                animation: none;
+                display: none;
+            }
+
+            * {
+                animation-duration: 0.001s !important;
+                transition-duration: 0.001s !important;
+                scroll-behavior: auto !important;
+            }
+        }
+    </style>
+
+    <!-- Firebase App & Services -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-app.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-auth.js";
+        import {
+            getFirestore,
+            collection,
+            doc,
+            setDoc,
+            addDoc,
+            onSnapshot,
+            serverTimestamp
+        } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyA09DjN5GLtG3eCfXYmagdD49d36MWu5FQ",
+            authDomain: "akihacks-86983.firebaseapp.com",
+            projectId: "akihacks-86983",
+            storageBucket: "akihacks-86983.firebasestorage.app",
+            messagingSenderId: "97252862926",
+            appId: "1:97252862926:web:371c992d244dcac87f999f",
+            measurementId: "G-E221ZLWMMZ"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        let currentUser = null;
+        signInAnonymously(auth).catch((err) => {
+            console.warn("Firebase Auth Note:", err.message);
+        });
+
+        onAuthStateChanged(auth, (user) => {
+            currentUser = user;
+        });
+
+        // Real-Time Kolkata Vote Counter
+        const voteCountEl = document.getElementById("vote-count");
+        const voteProgressEl = document.getElementById("vote-progress");
+        const voteHeroBadge = document.getElementById("hero-vote-badge");
+        const unlockStatusSection = document.getElementById("unlock-status-container");
+
+        try {
+            const votesCol = collection(db, "votes");
+            onSnapshot(votesCol, (snapshot) => {
+                const count = snapshot.size;
+                const target = 100;
+                const percentage = Math.min(100, Math.round((count / target) * 100));
+
+                if (voteCountEl) voteCountEl.textContent = `${count} / ${target}`;
+                if (voteHeroBadge) voteHeroBadge.textContent = `${count} / ${target} VOTES UNLOCKED`;
+                if (voteProgressEl) {
+                    voteProgressEl.style.width = `${percentage}%`;
+                    voteProgressEl.setAttribute("aria-valuenow", count);
+                }
+
+                const whatsappShareBtn = document.getElementById("whatsapp-share-btn");
+                if (whatsappShareBtn) {
+                    const text = `I am voter ${count}, let's vote to unlock Kolkata! https://akihacks.blobly.in/#unlock`;
+                    whatsappShareBtn.href = `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`;
+                }
+
+                if (count >= target && unlockStatusSection) {
+                    unlockStatusSection.innerHTML = `
+            <div class="border-2 border-aki-orange p-8 text-center bg-white mb-6">
+              <span class="inline-block px-3 py-1 bg-aki-orange text-white text-xs font-bold uppercase tracking-widest mb-4">🔓 KOLKATA UNLOCKED</span>
+              <h3 class="text-3xl font-extrabold text-aki-dark tracking-tight mb-2">Kolkata, we're coming.</h3>
+              <p class="text-aki-dark font-medium text-lg">AKI HACKS 2026 · October 2026</p>
+            </div>
+
+            <div class="border border-aki-border p-6 sm:p-8 bg-white text-center">
+              <span class="inline-block px-3 py-1 bg-aki-dark text-white text-[10px] font-extrabold uppercase tracking-widest mb-4">NEXT MILESTONE</span>
+              <h4 class="text-2xl font-bold text-aki-dark tracking-tight mb-2">Venue Poll Coming Soon</h4>
+              <p class="text-sm text-aki-muted">Choose a venue! The most voted venue will be our venue for this event.</p>
+            </div>
+          `;
+                }
+            }, (err) => {
+                console.warn("Firestore Vote Listener Note:", err.message);
+            });
+        } catch (e) {
+            console.warn("Firestore Initialization Note:", e);
+        }
+
+        // Modal Handling
+        const voteModal = document.getElementById("vote-modal");
+        const openVoteBtn = document.getElementById("open-vote-modal");
+        const heroUnlockBtn = document.getElementById("hero-unlock-btn");
+        const closeVoteBtn = document.getElementById("close-vote-modal");
+        const voteForm = document.getElementById("vote-form");
+        const voteFormMsg = document.getElementById("vote-form-msg");
+
+        const openModal = () => {
+            if (localStorage.getItem("hasVoted_AkiHacks") === "true") {
+                alert("You have already voted! Thank you for your support.");
+                return;
+            }
+            voteModal.classList.remove("hidden");
+            voteModal.setAttribute("aria-hidden", "false");
+            document.getElementById("voter-name").focus();
+        };
+
+        const closeModal = () => {
+            voteModal.classList.add("hidden");
+            voteModal.setAttribute("aria-hidden", "true");
+        };
+
+        if (openVoteBtn) openVoteBtn.addEventListener("click", openModal);
+        if (heroUnlockBtn) heroUnlockBtn.addEventListener("click", openModal);
+        if (closeVoteBtn) closeVoteBtn.addEventListener("click", closeModal);
+
+        const shareModal = document.getElementById("share-modal");
+        const openShareBtn = document.getElementById("open-share-modal");
+        const closeShareBtn = document.getElementById("close-share-modal");
+        const copyShareLinkBtn = document.getElementById("copy-share-link");
+        const shareLinkInput = document.getElementById("share-link-input");
+        const copyMsg = document.getElementById("copy-msg");
+
+        const openShareModal = () => {
+            shareModal.classList.remove("hidden");
+            shareModal.setAttribute("aria-hidden", "false");
+        };
+
+        const closeShareModalFn = () => {
+            shareModal.classList.add("hidden");
+            shareModal.setAttribute("aria-hidden", "true");
+            copyMsg.classList.add("hidden");
+        };
+
+        // Apply Coming Soon Modal & Toast
+        const applyModal = document.getElementById("apply-modal");
+        const closeApplyBtn = document.getElementById("close-apply-modal");
+        const applyVoteRedirectBtn = document.getElementById("apply-vote-redirect");
+        const applyToast = document.getElementById("apply-toast");
+
+        const openApplyModal = () => {
+            if (applyModal) {
+                applyModal.classList.remove("hidden");
+                applyModal.setAttribute("aria-hidden", "false");
+            }
+            if (applyToast) {
+                applyToast.classList.remove("hidden");
+                setTimeout(() => {
+                    applyToast.classList.add("hidden");
+                }, 3500);
+            }
+        };
+
+        const closeApplyModalFn = () => {
+            if (applyModal) {
+                applyModal.classList.add("hidden");
+                applyModal.setAttribute("aria-hidden", "true");
+            }
+        };
+
+        document.querySelectorAll(".apply-btn").forEach((btn) => {
+            btn.addEventListener("click", (e) => {
+                e.preventDefault();
+                openApplyModal();
+            });
+        });
+
+        if (closeApplyBtn) closeApplyBtn.addEventListener("click", closeApplyModalFn);
+        if (applyVoteRedirectBtn) {
+            applyVoteRedirectBtn.addEventListener("click", () => {
+                closeApplyModalFn();
+                const unlockSec = document.getElementById("unlock");
+                if (unlockSec) {
+                    unlockSec.scrollIntoView({ behavior: "smooth" });
+                }
+                setTimeout(() => {
+                    openModal();
+                }, 600);
+            });
+        }
+
+        // Delegate listener in case openShareBtn or apply buttons are dynamically accessed
+        document.addEventListener("click", (e) => {
+            if (e.target && e.target.id === "open-share-modal") {
+                openShareModal();
+            }
+            if (e.target && (e.target.classList.contains("apply-btn") || e.target.closest(".apply-btn"))) {
+                openApplyModal();
+            }
+        });
+
+        if (closeShareBtn) closeShareBtn.addEventListener("click", closeShareModalFn);
+
+        if (copyShareLinkBtn) {
+            copyShareLinkBtn.addEventListener("click", () => {
+                navigator.clipboard.writeText(shareLinkInput.value).then(() => {
+                    copyMsg.classList.remove("hidden");
+                    setTimeout(() => copyMsg.classList.add("hidden"), 2000);
+                });
+            });
+        }
+
+        window.addEventListener("keydown", (e) => {
+            if (e.key === "Escape") {
+                if (voteModal && !voteModal.classList.contains("hidden")) closeModal();
+                if (shareModal && !shareModal.classList.contains("hidden")) closeShareModalFn();
+                if (applyModal && !applyModal.classList.contains("hidden")) closeApplyModalFn();
+            }
+        });
+
+        if (voteForm) {
+            voteForm.addEventListener("submit", async (e) => {
+                e.preventDefault();
+                const name = document.getElementById("voter-name").value.trim();
+                const email = document.getElementById("voter-email").value.trim();
+                const submitBtn = document.getElementById("submit-vote-btn");
+
+                if (!name || !email) {
+                    voteFormMsg.textContent = "Please fill in all fields.";
+                    voteFormMsg.className = "text-xs font-semibold text-aki-orange mt-3 block";
+                    return;
+                }
+
+                submitBtn.disabled = true;
+                submitBtn.textContent = "Submitting...";
+
+                try {
+                    const uid = currentUser ? currentUser.uid : "anon_" + Date.now();
+                    await setDoc(doc(db, "votes", uid), {
+                        name: name,
+                        email: email,
+                        city: "Kolkata",
+                        userId: uid,
+                        createdAt: serverTimestamp()
+                    });
+
+                    localStorage.setItem("hasVoted_AkiHacks", "true");
+
+                    voteForm.innerHTML = `
+            <div class="py-6 text-center">
+              <span class="text-aki-orange text-2xl block mb-2 font-bold">✓</span>
+              <h4 class="text-xl font-bold text-aki-dark">Successfully voted!</h4>
+              <p class="text-sm text-aki-muted mt-2">Thanks, <strong class="text-aki-dark">${name}</strong>. Your vote for Kolkata has been counted.</p>
+              <button type="button" id="modal-done-btn" class="mt-6 px-6 py-2.5 bg-aki-dark text-white text-xs font-bold uppercase tracking-wider hover:bg-aki-orange transition-colors">Close</button>
+            </div>
+          `;
+                    document.getElementById("modal-done-btn").addEventListener("click", closeModal);
+                } catch (err) {
+                    voteFormMsg.textContent = "Unable to record vote right now. Please try again.";
+                    voteFormMsg.className = "text-xs font-semibold text-aki-orange mt-3 block";
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = "Submit Vote →";
+                }
+            });
+        }
+
+        // Support Form Handling
+        const supportForm = document.getElementById("support-form");
+        const supportStatus = document.getElementById("support-status");
+
+        if (supportForm) {
+            supportForm.addEventListener("submit", async (e) => {
+                e.preventDefault();
+                const name = document.getElementById("support-name").value.trim();
+                const email = document.getElementById("support-email").value.trim();
+                const message = document.getElementById("support-message").value.trim();
+                const btn = document.getElementById("support-submit-btn");
+
+                if (!name || !email || !message) return;
+
+                btn.disabled = true;
+                btn.textContent = "Sending...";
+
+                try {
+                    await addDoc(collection(db, "support_messages"), {
+                        name: name,
+                        email: email,
+                        message: message,
+                        createdAt: serverTimestamp(),
+                        status: "new"
+                    });
+
+                    supportStatus.textContent = "Message sent successfully. ✓";
+                    supportStatus.className = "text-sm font-semibold text-aki-orange mt-4 block";
+                    supportForm.reset();
+                } catch (err) {
+                    supportStatus.textContent = "Error sending message. Please reach out via email.";
+                    supportStatus.className = "text-sm font-semibold text-aki-orange mt-4 block";
+                } finally {
+                    btn.disabled = false;
+                    btn.textContent = "Send Message →";
+                }
+            });
+        }
+    </script>
+</head>
+
+<body class="bg-aki-bg text-aki-dark selection:bg-aki-orange selection:text-white relative overflow-x-hidden font-sans">
+
+    <!-- ACCESSIBILITY SKIP LINK -->
+    <a href="#main-content"
+        class="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-50 focus:px-4 focus:py-2 focus:bg-aki-orange focus:text-white focus:font-bold">
+        Skip to main content
+    </a>
+
+    <!-- TOP ANNOUNCEMENT BAR -->
+    <aside aria-label="Edition notice"
+        class="border-b border-aki-border py-2 px-4 text-center text-xs font-semibold uppercase tracking-wider text-aki-muted bg-white">
+        <span>First Edition</span> · <span class="text-aki-orange font-bold">Kolkata 🇮🇳</span> · <span>October
+            2026</span>
+    </aside>
+
+    <!-- NAVBAR -->
+    <header class="sticky top-0 z-40 border-b border-aki-border bg-white/95 backdrop-blur-sm">
+        <div class="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
+            <a href="#" class="flex items-center gap-3" aria-label="AKI HACKS Home">
+                <img src="logo.png" alt="AKI HACKS Official Logo" class="h-10 w-auto object-contain" />
+            </a>
+
+            <nav class="hidden md:flex items-center gap-8 text-xs uppercase font-bold tracking-widest text-aki-dark">
+                <a href="#about" class="hover:text-aki-orange transition-colors">About</a>
+                <a href="#startup-simulation" class="hover:text-aki-orange transition-colors">Experience</a>
+                <a href="#journey" class="hover:text-aki-orange transition-colors">Journey</a>
+                <a href="#organisers" class="hover:text-aki-orange transition-colors">Organisers</a>
+                <a href="#unlock" class="hover:text-aki-orange transition-colors">Unlock Kolkata</a>
+                <a href="#sponsors" class="hover:text-aki-orange transition-colors">Sponsors</a>
+                <a href="#faq" class="hover:text-aki-orange transition-colors">FAQ</a>
+                <a href="#support" class="hover:text-aki-orange transition-colors">Support</a>
+            </nav>
+
+            <div>
+                <button type="button" id="nav-apply-btn"
+                    class="apply-btn hidden sm:inline-flex items-center gap-2 px-5 py-2.5 bg-aki-orange hover:bg-aki-dark text-white text-xs font-extrabold uppercase tracking-widest transition-colors rounded-[3px]">
+                    <span>Apply Now!</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- MAIN WRAPPER -->
+    <main id="main-content">
+
+        <!-- 7. HERO SECTION -->
+        <section
+            class="relative min-h-[90vh] flex items-center justify-center border-b border-aki-border py-20 px-6 overflow-hidden bg-white">
+
+            <!-- Japanese Sakura Ambient Layers -->
+            <div class="absolute inset-0 pointer-events-none overflow-hidden" aria-hidden="true">
+                <!-- Static/Drifting Clean SVG Petals -->
+                <svg class="petal-ambient top-10 left-[15%] w-5 h-5 text-aki-orange" style="animation-delay: 0s;"
+                    viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 2C9 7 4 9 2 12c5 2 7 7 10 10 3-5 8-7 10-10-5-3-7-8-10-10z" />
+                </svg>
+                <svg class="petal-ambient top-20 right-[20%] w-4 h-4 text-aki-orange" style="animation-delay: 4s;"
+                    viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 2C9 7 4 9 2 12c5 2 7 7 10 10 3-5 8-7 10-10-5-3-7-8-10-10z" />
+                </svg>
+                <svg class="petal-ambient top-32 left-[40%] w-6 h-6 text-aki-orange" style="animation-delay: 8s;"
+                    viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 2C9 7 4 9 2 12c5 2 7 7 10 10 3-5 8-7 10-10-5-3-7-8-10-10z" />
+                </svg>
+            </div>
+
+            <div class="max-w-5xl mx-auto w-full text-center relative z-10">
+
+                <!-- Clean Kanji Decorative Accent -->
+                <div class="flex items-center justify-center gap-3 mb-6" aria-hidden="true">
+                    <span class="h-px w-8 bg-aki-border"></span>
+                    <span class="font-jp text-sm tracking-widest text-aki-muted uppercase">秋 · INNOVATION</span>
+                    <span class="h-px w-8 bg-aki-border"></span>
+                </div>
+
+                <!-- Badges -->
+                <div class="inline-flex items-center gap-2 px-3 py-1 border border-aki-border mb-8 bg-white">
+                    <span class="w-2 h-2 rounded-full bg-aki-orange"></span>
+                    <span class="text-[11px] font-extrabold uppercase tracking-widest text-aki-dark">FIRST
+                        EDITION</span>
+                    <span class="text-aki-border">|</span>
+                    <span id="hero-vote-badge"
+                        class="text-[11px] font-extrabold uppercase tracking-widest text-aki-orange">0 / 100
+                        VOTES</span>
+                </div>
+
+                <!-- Headline -->
+                <h1
+                    class="text-5xl sm:text-7xl lg:text-8xl font-extrabold text-aki-dark tracking-tight uppercase leading-[0.95] mb-8">
+                    Build Solutions.<br />
+                    <span class="text-aki-orange">Break Barriers.</span>
+                </h1>
+
+                <!-- Supporting Text -->
+                <p class="max-w-2xl mx-auto text-lg sm:text-xl font-medium text-aki-dark leading-relaxed mb-4">
+                    AKI HACKS isn't just about building a project. It's about learning how to build something from
+                    nothing.
+                </p>
+
+                <p class="max-w-xl mx-auto text-sm sm:text-base text-aki-muted mb-10 leading-normal">
+                    Work with people you've never met. Solve a real problem. Build a prototype. Think like a startup.
+                </p>
+
+                <!-- Information Strip -->
+                <div
+                    class="grid grid-cols-2 sm:grid-cols-4 gap-4 max-w-2xl mx-auto border-y border-aki-border py-4 mb-10 text-left sm:text-center text-xs uppercase font-bold tracking-wider text-aki-dark">
+                    <div>
+                        <span class="text-aki-muted block text-[10px] mb-0.5">LOCATION</span>
+                        KOLKATA 🇮🇳
+                    </div>
+                    <div>
+                        <span class="text-aki-muted block text-[10px] mb-0.5">MONTH</span>
+                        OCTOBER 2026
+                    </div>
+                    <div>
+                        <span class="text-aki-muted block text-[10px] mb-0.5">DATE</span>
+                        DATE — TBD
+                    </div>
+                    <div>
+                        <span class="text-aki-muted block text-[10px] mb-0.5">VENUE</span>
+                        VENUE — TBD
+                    </div>
+                </div>
+
+                <!-- CTAs -->
+                <div class="flex flex-col sm:flex-row items-center justify-center gap-4">
+                    <button type="button" id="hero-apply-btn"
+                        class="apply-btn w-full sm:w-auto px-8 py-4 bg-aki-orange hover:bg-aki-dark text-white text-xs font-extrabold uppercase tracking-widest transition-all duration-200 flex items-center justify-center gap-2.5">
+                        <span>Apply Now!</span>
+                    </button>
+                    <a href="#about"
+                        class="w-full sm:w-auto px-8 py-4 border border-aki-border text-aki-dark text-xs font-extrabold uppercase tracking-widest hover:border-aki-dark transition-colors flex items-center justify-center">
+                        Explore the Experience ↓
+                    </a>
+                </div>
+
+            </div>
+
+            <!-- Minimal Japanese Fox Mask Artistic SVG Accent (Static & Clean) -->
+            <div class="absolute bottom-4 right-4 sm:bottom-8 sm:right-8 opacity-25 pointer-events-none"
+                aria-hidden="true">
+                <svg width="80" height="90" viewBox="0 0 100 120" fill="none" stroke="#070A0E" stroke-width="2">
+                    <path d="M50 15 L20 45 L25 80 L50 105 L75 80 L80 45 Z" />
+                    <path d="M20 45 L5 20 L35 38" />
+                    <path d="M80 45 L95 20 L65 38" />
+                    <path d="M35 60 Q40 68 45 60" stroke="#F25D27" stroke-width="2.5" />
+                    <path d="M65 60 Q60 68 55 60" stroke="#F25D27" stroke-width="2.5" />
+                    <path d="M48 82 L52 82" stroke="#F25D27" stroke-width="2" />
+                </svg>
+            </div>
+        </section>
+
+        <!-- 11 & 12. LOCATION MAP (Broad Kolkata Demo Map) -->
+        <section class="border-b border-aki-border py-16 px-6 bg-white" aria-labelledby="map-heading">
+            <div class="max-w-7xl mx-auto">
+
+                <div
+                    class="flex flex-col md:flex-row md:items-end justify-between mb-8 pb-6 border-b border-aki-border">
+                    <div>
+                        <span
+                            class="text-aki-orange text-xs font-extrabold uppercase tracking-widest block mb-2">Location</span>
+                        <h2 id="map-heading" class="text-3xl sm:text-4xl font-extrabold tracking-tight text-aki-dark">
+                            We're coming to Kolkata.
+                        </h2>
+                    </div>
+                    <div class="mt-4 md:mt-0 text-left md:text-right">
+                        <p class="text-sm font-bold text-aki-dark">Kolkata, West Bengal 🇮🇳</p>
+                        <p class="text-xs text-aki-muted uppercase tracking-wider">October 2026 · Date — TBD · Venue —
+                            TBD</p>
+                    </div>
+                </div>
+
+                <!-- Kolkata Region Interactive Google Map -->
+                <div class="border border-aki-border bg-white overflow-hidden">
+                    <div class="px-6 py-4 border-b border-aki-border bg-slate-50 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                        <div class="flex items-center gap-2.5">
+                            <span class="inline-block w-2.5 h-2.5 rounded-full bg-aki-orange"></span>
+                            <span class="text-xs font-extrabold uppercase tracking-wider text-aki-dark">Host City · Kolkata, West Bengal 🇮🇳</span>
+                        </div>
+                        <span class="text-[11px] font-semibold text-aki-muted uppercase tracking-wider">Metropolitan Area · Exact Venue TBA</span>
+                    </div>
+                    <div class="relative w-full h-80 sm:h-96">
+                        <iframe 
+                            title="Kolkata Location Google Map"
+                            src="https://maps.google.com/maps?q=Kolkata,+West+Bengal,+India&t=&z=12&ie=UTF8&iwloc=&output=embed"
+                            width="100%" 
+                            height="100%" 
+                            style="border:0;" 
+                            allowfullscreen="" 
+                            loading="lazy" 
+                            referrerpolicy="no-referrer-when-downgrade">
+                        </iframe>
+                    </div>
+                </div>
+
+            </div>
+        </section>
+
+        <!-- 13. WHAT IS AKI HACKS? -->
+        <section id="about" class="border-b border-aki-border py-20 px-6 bg-white" aria-labelledby="about-heading">
+            <div class="max-w-5xl mx-auto">
+                <span class="text-aki-orange text-xs font-extrabold uppercase tracking-widest block mb-3">01 ·
+                    Concept</span>
+                <h2 id="about-heading" class="text-3xl sm:text-5xl font-extrabold text-aki-dark tracking-tight mb-8">
+                    This isn't just a hackathon.
+                </h2>
+
+                <p class="text-xl sm:text-2xl font-bold text-aki-dark leading-snug mb-8">
+                    You're not just building a solution. You're building like a startup.
+                </p>
+
+                <p class="text-base text-aki-muted leading-relaxed mb-12 max-w-3xl">
+                    Participants receive real-world problems sourced from NGOs, foundations and partner organisations
+                    working with people with disabilities. The goal is not merely to submit code—the goal is to
+                    experience the earliest stages of building a startup from zero.
+                </p>
+
+                <!-- The 7-Stage Flow Sequence -->
+                <div
+                    class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3 text-center text-xs font-extrabold uppercase tracking-wider">
+                    <div class="p-4 border border-aki-border bg-white flex flex-col justify-center">
+                        <span class="text-aki-orange text-[10px] mb-1">01</span>
+                        <span>Problem</span>
+                    </div>
+                    <div class="p-4 border border-aki-border bg-white flex flex-col justify-center">
+                        <span class="text-aki-orange text-[10px] mb-1">02</span>
+                        <span>Idea</span>
+                    </div>
+                    <div class="p-4 border border-aki-border bg-white flex flex-col justify-center">
+                        <span class="text-aki-orange text-[10px] mb-1">03</span>
+                        <span>Team</span>
+                    </div>
+                    <div class="p-4 border border-aki-border bg-white flex flex-col justify-center">
+                        <span class="text-aki-orange text-[10px] mb-1">04</span>
+                        <span>Prototype</span>
+                    </div>
+                    <div class="p-4 border border-aki-border bg-white flex flex-col justify-center">
+                        <span class="text-aki-orange text-[10px] mb-1">05</span>
+                        <span>Product</span>
+                    </div>
+                    <div class="p-4 border border-aki-border bg-white flex flex-col justify-center">
+                        <span class="text-aki-orange text-[10px] mb-1">06</span>
+                        <span>Pitch</span>
+                    </div>
+                    <div class="p-4 border border-aki-dark bg-aki-dark text-white flex flex-col justify-center">
+                        <span class="text-aki-orange text-[10px] mb-1">07</span>
+                        <span>Competition</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 14. REAL PROBLEMS -->
+        <section class="border-b border-aki-border py-20 px-6 bg-white" aria-labelledby="problems-heading">
+            <div class="max-w-7xl mx-auto">
+
+                <div class="max-w-3xl mb-12">
+                    <span class="text-aki-orange text-xs font-extrabold uppercase tracking-widest block mb-2">02 ·
+                        Domain Focus</span>
+                    <h2 id="problems-heading"
+                        class="text-3xl sm:text-4xl font-extrabold text-aki-dark tracking-tight mb-4">
+                        Real problems. Not hypothetical prompts.
+                    </h2>
+                    <p class="text-base text-aki-muted leading-relaxed">
+                        AKI HACKS will partner with NGOs and foundations to bring real-world accessibility problems to
+                        participants.
+                    </p>
+                </div>
+
+                <!-- Problem Focus Areas Grid -->
+                <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 mb-12 text-sm font-bold text-aki-dark">
+                    <div class="p-5 border border-aki-border">Mobility</div>
+                    <div class="p-5 border border-aki-border">Education</div>
+                    <div class="p-5 border border-aki-border">Communication</div>
+                    <div class="p-5 border border-aki-border">Digital Accessibility</div>
+                    <div class="p-5 border border-aki-border">Employment</div>
+                    <div class="p-5 border border-aki-border">Transportation</div>
+                    <div class="p-5 border border-aki-border">Independent Living</div>
+                    <div class="p-5 border border-aki-border">Assistive Technology</div>
+                    <div class="p-5 border border-aki-border">Visual Accessibility</div>
+                    <div class="p-5 border border-aki-border">Hearing Accessibility</div>
+                    <div class="p-5 border border-aki-border col-span-2">Public Infrastructure</div>
+                </div>
+
+                <!-- NGO Partner Box -->
+                <div
+                    class="p-6 border border-aki-border bg-white flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                    <div>
+                        <h3 class="text-xs font-extrabold uppercase tracking-widest text-aki-dark">NGO & FOUNDATION
+                            PARTNERS</h3>
+                        <p class="text-xs text-aki-muted mt-0.5">Partnership announcements coming soon.</p>
+                    </div>
+                    <span class="text-xs font-bold text-aki-orange uppercase tracking-wider">Official Announcements Soon
+                        →</span>
+                </div>
+
+            </div>
+        </section>
+
+        <!-- 15 & 16. STARTUP SIMULATION & RANDOM TEAM SYSTEM -->
+        <section id="startup-simulation" class="border-b border-aki-border py-20 px-6 bg-white"
+            aria-labelledby="simulation-heading">
+            <div class="max-w-5xl mx-auto">
+
+                <div class="mb-16">
+                    <span class="text-aki-orange text-xs font-extrabold uppercase tracking-widest block mb-2">03 ·
+                        Simulation</span>
+                    <h2 id="simulation-heading"
+                        class="text-4xl sm:text-6xl font-black text-aki-dark tracking-tight uppercase mb-8">
+                        Welcome to Day Zero.
+                    </h2>
+
+                    <div
+                        class="space-y-3 text-lg sm:text-2xl font-bold text-aki-dark border-l-2 border-aki-dark pl-6 py-2">
+                        <p>Imagine you have an idea but no team.</p>
+                        <p>Imagine your teammates have completely different skills.</p>
+                        <p>Imagine you disagree about what to build.</p>
+                        <p>Imagine you only have a few hours.</p>
+                        <p>Imagine your first idea doesn't work.</p>
+                        <p class="text-aki-orange">Now build anyway.</p>
+                    </div>
+                </div>
+
+                <!-- The Strict Twist -->
+                <div class="border-2 border-aki-dark p-8 sm:p-10 bg-white">
+                    <span
+                        class="px-3 py-1 bg-aki-dark text-white text-[10px] font-extrabold uppercase tracking-widest mb-4 inline-block">THE
+                        DEFINING TWIST</span>
+                    <h3 class="text-2xl sm:text-3xl font-extrabold text-aki-dark mb-4">
+                        You don't choose your team.
+                    </h3>
+                    <p class="text-base text-aki-dark font-medium leading-relaxed mb-6">
+                        You won't arrive with your existing friend group and build the project you've already planned.
+                        You'll meet new people, discover different skills, divide responsibilities, disagree, adapt, and
+                        build something together.
+                    </p>
+
+                    <div class="p-4 border border-aki-border bg-white flex items-center gap-4">
+                        <span class="text-xs font-extrabold uppercase tracking-widest text-aki-orange">NO PRE-FORMED
+                            TEAMS.</span>
+                        <span class="h-4 w-px bg-aki-border"></span>
+                        <span class="text-xs font-bold text-aki-dark">You must work with the teammates assigned to you.
+                            This is a strict rule.</span>
+                    </div>
+                </div>
+
+            </div>
+        </section>
+
+        <!-- 17. WHAT PARTICIPANTS LEARN -->
+        <section class="border-b border-aki-border py-20 px-6 bg-white" aria-labelledby="learn-heading">
+            <div class="max-w-7xl mx-auto">
+                <div class="max-w-3xl mb-12">
+                    <span class="text-aki-orange text-xs font-extrabold uppercase tracking-widest block mb-2">04 · Core
+                        Outcomes</span>
+                    <h2 id="learn-heading" class="text-3xl sm:text-4xl font-extrabold text-aki-dark tracking-tight">
+                        What you'll actually learn.
+                    </h2>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <div class="p-8 border border-aki-border">
+                        <span class="text-aki-orange font-bold text-xs uppercase tracking-widest block mb-2">01</span>
+                        <h3 class="text-lg font-bold text-aki-dark mb-2">Communication</h3>
+                        <p class="text-sm text-aki-muted leading-relaxed">Communicate quickly with unfamiliar teammates.
+                        </p>
+                    </div>
+
+                    <div class="p-8 border border-aki-border">
+                        <span class="text-aki-orange font-bold text-xs uppercase tracking-widest block mb-2">02</span>
+                        <h3 class="text-lg font-bold text-aki-dark mb-2">Leadership</h3>
+                        <p class="text-sm text-aki-muted leading-relaxed">Take ownership when the team needs direction.
+                        </p>
+                    </div>
+
+                    <div class="p-8 border border-aki-border">
+                        <span class="text-aki-orange font-bold text-xs uppercase tracking-widest block mb-2">03</span>
+                        <h3 class="text-lg font-bold text-aki-dark mb-2">Product Thinking</h3>
+                        <p class="text-sm text-aki-muted leading-relaxed">Understand what should actually be built.</p>
+                    </div>
+
+                    <div class="p-8 border border-aki-border">
+                        <span class="text-aki-orange font-bold text-xs uppercase tracking-widest block mb-2">04</span>
+                        <h3 class="text-lg font-bold text-aki-dark mb-2">Problem Solving</h3>
+                        <p class="text-sm text-aki-muted leading-relaxed">Make decisions with limited information and
+                            time.</p>
+                    </div>
+
+                    <div class="p-8 border border-aki-border">
+                        <span class="text-aki-orange font-bold text-xs uppercase tracking-widest block mb-2">05</span>
+                        <h3 class="text-lg font-bold text-aki-dark mb-2">Adaptability</h3>
+                        <p class="text-sm text-aki-muted leading-relaxed">Change direction when your first idea doesn't
+                            work.</p>
+                    </div>
+
+                    <div class="p-8 border border-aki-border">
+                        <span class="text-aki-orange font-bold text-xs uppercase tracking-widest block mb-2">06</span>
+                        <h3 class="text-lg font-bold text-aki-dark mb-2">Startup Thinking</h3>
+                        <p class="text-sm text-aki-muted leading-relaxed">Turn a problem into something people could
+                            actually use.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 18. MENTORS -->
+        <section class="border-b border-aki-border py-20 px-6 bg-white" aria-labelledby="mentors-heading">
+            <div class="max-w-7xl mx-auto">
+                <div class="flex flex-col lg:flex-row lg:items-end justify-between mb-12 gap-6">
+                    <div class="max-w-2xl">
+                        <span class="text-aki-orange text-xs font-extrabold uppercase tracking-widest block mb-2">05 ·
+                            Guidance</span>
+                        <h2 id="mentors-heading"
+                            class="text-3xl sm:text-4xl font-extrabold text-aki-dark tracking-tight mb-4">
+                            You won't be building alone.
+                        </h2>
+                        <p class="text-base text-aki-muted leading-relaxed">
+                            Mentors will be available throughout the experience to guide teams, challenge their
+                            assumptions and help them navigate the problems they encounter.
+                        </p>
+                    </div>
+                    <div>
+                        <span
+                            class="px-4 py-2 border border-aki-dark text-xs font-extrabold uppercase tracking-wider inline-block">
+                            MORE THAN 3 MENTORS
+                        </span>
+                    </div>
+                </div>
+
+                <!-- Mentorship Areas -->
+                <div
+                    class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-8 text-center text-xs font-bold text-aki-dark">
+                    <div class="p-4 border border-aki-border">Product</div>
+                    <div class="p-4 border border-aki-border">Technology</div>
+                    <div class="p-4 border border-aki-border">Design</div>
+                    <div class="p-4 border border-aki-border">Startup Strategy</div>
+                    <div class="p-4 border border-aki-border">Accessibility</div>
+                    <div class="p-4 border border-aki-border">Pitching</div>
+                </div>
+
+                <div
+                    class="p-4 border border-aki-border text-center text-xs font-semibold text-aki-muted uppercase tracking-widest">
+                    Mentor announcements coming soon.
+                </div>
+            </div>
+        </section>
+
+        <!-- 19–27. THE AKI HACKS JOURNEY (Agenda Flow Diagram) -->
+        <section id="journey" class="border-b border-aki-border py-20 px-6 bg-white" aria-labelledby="journey-heading">
+            <div class="max-w-7xl mx-auto">
+
+                <div class="max-w-3xl mb-12">
+                    <span class="text-aki-orange text-xs font-extrabold uppercase tracking-widest block mb-2">06 ·
+                        Step-By-Step</span>
+                    <h2 id="journey-heading" class="text-3xl sm:text-4xl font-extrabold text-aki-dark tracking-tight">
+                        The AKI HACKS Journey
+                    </h2>
+                </div>
+
+                <!-- High-Level Simple Flow Bar -->
+                <div class="mb-10 p-4 border border-aki-border bg-aki-surface overflow-x-auto">
+                    <div class="flex items-center justify-between min-w-[640px] text-xs font-bold text-aki-dark gap-2">
+                        <div class="flex items-center gap-2">
+                            <span class="w-6 h-6 rounded-full bg-aki-orange text-white flex items-center justify-center text-[10px] shrink-0 font-extrabold">1</span>
+                            <span>Intro</span>
+                        </div>
+                        <span class="text-aki-muted">→</span>
+                        <div class="flex items-center gap-2">
+                            <span class="w-6 h-6 rounded-full bg-aki-dark text-white flex items-center justify-center text-[10px] shrink-0 font-extrabold">2</span>
+                            <span>Speaker</span>
+                        </div>
+                        <span class="text-aki-muted">→</span>
+                        <div class="flex items-center gap-2">
+                            <span class="w-6 h-6 rounded-full bg-aki-dark text-white flex items-center justify-center text-[10px] shrink-0 font-extrabold">3</span>
+                            <span>Speaker & NGO Problems</span>
+                        </div>
+                        <span class="text-aki-muted">→</span>
+                        <div class="flex items-center gap-2">
+                            <span class="w-6 h-6 rounded-full bg-aki-dark text-white flex items-center justify-center text-[10px] shrink-0 font-extrabold">4</span>
+                            <span>Build <span class="text-[10px] text-aki-orange font-normal">(🍱 Lunch Provided)</span></span>
+                        </div>
+                        <span class="text-aki-muted">→</span>
+                        <div class="flex items-center gap-2">
+                            <span class="w-6 h-6 rounded-full bg-aki-dark text-white flex items-center justify-center text-[10px] shrink-0 font-extrabold">5</span>
+                            <span>Submit & Evaluate</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Flow Nodes -->
+                <div class="space-y-6">
+
+                    <!-- Node 01 -->
+                    <article
+                        class="p-6 sm:p-8 border border-aki-border flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+                        <div class="flex items-start gap-4">
+                            <span class="text-aki-orange text-sm font-extrabold">01</span>
+                            <div>
+                                <h3 class="text-xl font-bold text-aki-dark">Introduction</h3>
+                                <p class="text-xs text-aki-muted mt-1">Host welcomes everyone. Covers event format,
+                                    rules, random team system, judging, and submission criteria.</p>
+                            </div>
+                        </div>
+                        <span
+                            class="px-3 py-1 border border-aki-border text-[10px] font-extrabold uppercase tracking-widest text-aki-muted shrink-0">Stage
+                            01</span>
+                    </article>
+
+                    <!-- Node 02 -->
+                    <article
+                        class="p-6 sm:p-8 border border-aki-border flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+                        <div class="flex items-start gap-4">
+                            <span class="text-aki-orange text-sm font-extrabold">02</span>
+                            <div>
+                                <h3 class="text-xl font-bold text-aki-dark">Speaker Session</h3>
+                                <p class="text-xs text-aki-muted mt-1">Dedicated to Innovation, Startups,
+                                    Accessibility, Product building, Failure, and Problem solving.</p>
+                            </div>
+                        </div>
+                        <span
+                            class="px-3 py-1 border border-aki-border text-[10px] font-extrabold uppercase tracking-widest text-aki-muted shrink-0">Speaker:
+                            Coming Soon</span>
+                    </article>
+
+                    <!-- Node 03 -->
+                    <article
+                        class="p-6 sm:p-8 border border-aki-border flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+                        <div class="flex items-start gap-4">
+                            <span class="text-aki-orange text-sm font-extrabold">03</span>
+                            <div>
+                                <h3 class="text-xl font-bold text-aki-dark">Problem Statements</h3>
+                                <p class="text-xs text-aki-muted mt-1">NGO/foundation partners introduce real-world
+                                    barriers, constraints, and opportunities faced by people with disabilities.</p>
+                            </div>
+                        </div>
+                        <span
+                            class="px-3 py-1 bg-aki-orange text-white text-[10px] font-extrabold uppercase tracking-widest shrink-0">Real
+                            Problem</span>
+                    </article>
+
+                    <!-- Node 04 -->
+                    <article
+                        class="p-6 sm:p-8 border-2 border-aki-dark flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+                        <div class="flex items-start gap-4">
+                            <span class="text-aki-orange text-sm font-extrabold">04</span>
+                            <div>
+                                <h3 class="text-xl font-bold text-aki-dark">Form Random Team</h3>
+                                <p class="text-xs text-aki-muted mt-1">Meet people you didn't arrive with. Find out what
+                                    they can do. Figure out what you can build together.</p>
+                            </div>
+                        </div>
+                        <span
+                            class="px-3 py-1 bg-aki-dark text-white text-[10px] font-extrabold uppercase tracking-widest shrink-0">Strict
+                            Twist</span>
+                    </article>
+
+                    <!-- Node 05 (Build & Lunch) -->
+                    <article class="p-6 sm:p-8 border border-aki-border space-y-6">
+                        <div class="flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+                            <div class="flex items-start gap-4">
+                                <span class="text-aki-orange text-sm font-extrabold">05</span>
+                                <div>
+                                    <h3 class="text-xl font-bold text-aki-dark">Build with Your Team</h3>
+                                    <p class="text-xs text-aki-muted mt-1">Idea → Prototype → Product. Navigate unclear
+                                        concepts, disagreements, tech hurdles, scope changes, and time pressure.</p>
+                                </div>
+                            </div>
+                            <span
+                                class="px-3 py-1 border border-aki-border text-[10px] font-extrabold uppercase tracking-widest text-aki-muted shrink-0">Core
+                                Sprint</span>
+                        </div>
+
+                        <!-- Lunch Note -->
+                        <div
+                            class="border-t border-aki-border pt-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 text-xs">
+                            <span class="font-bold text-aki-dark">🍱 Lunch is provided.</span>
+                            <span class="text-aki-muted">Eat with your team. Build with your team. The sprint does not
+                                pause.</span>
+                        </div>
+                    </article>
+
+                    <!-- Node 06 -->
+                    <article
+                        class="p-6 sm:p-8 border border-aki-border flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+                        <div class="flex items-start gap-4">
+                            <span class="text-aki-orange text-sm font-extrabold">06</span>
+                            <div>
+                                <h3 class="text-xl font-bold text-aki-dark">Submit Your Project</h3>
+                                <p class="text-xs text-aki-muted mt-1">Submit team roster, problem addressed, solution
+                                    architecture, working prototype, and demo details.</p>
+                            </div>
+                        </div>
+                        <span
+                            class="px-3 py-1 border border-aki-border text-[10px] font-extrabold uppercase tracking-widest text-aki-muted shrink-0">Submission
+                            forms releasing soon</span>
+                    </article>
+
+                    <!-- Node 07 -->
+                    <article class="p-6 sm:p-8 border border-aki-border bg-white">
+                        <div class="flex flex-col md:flex-row items-start md:items-center justify-between gap-6 mb-6">
+                            <div class="flex items-start gap-4">
+                                <span class="text-aki-orange text-sm font-extrabold">07</span>
+                                <div>
+                                    <h3 class="text-xl font-bold text-aki-dark">Final Evaluation & Winner Selection</h3>
+                                    <p class="text-xs text-aki-muted mt-1">Rigorous evaluation on merit, accessibility,
+                                        and real startup execution viability.</p>
+                                </div>
+                            </div>
+                            <span
+                                class="px-3 py-1 bg-aki-dark text-white text-[10px] font-extrabold uppercase tracking-widest shrink-0">100
+                                Points Total</span>
+                        </div>
+
+                        <!-- Evaluation Criteria Breakdown -->
+                        <div
+                            class="grid grid-cols-2 sm:grid-cols-5 gap-3 text-center text-xs font-bold border-t border-aki-border pt-4">
+                            <div class="p-3 border border-aki-border">
+                                <span class="text-aki-orange block text-sm">25%</span>
+                                <span class="text-aki-dark">Problem Understanding</span>
+                            </div>
+                            <div class="p-3 border border-aki-border">
+                                <span class="text-aki-orange block text-sm">25%</span>
+                                <span class="text-aki-dark">Problem Solving</span>
+                            </div>
+                            <div class="p-3 border border-aki-border">
+                                <span class="text-aki-orange block text-sm">20%</span>
+                                <span class="text-aki-dark">Innovation</span>
+                            </div>
+                            <div class="p-3 border border-aki-border">
+                                <span class="text-aki-orange block text-sm">20%</span>
+                                <span class="text-aki-dark">Execution</span>
+                            </div>
+                            <div class="p-3 border border-aki-border col-span-2 sm:col-span-1">
+                                <span class="text-aki-orange block text-sm">10%</span>
+                                <span class="text-aki-dark">Impact</span>
+                            </div>
+                        </div>
+                    </article>
+
+                </div>
+
+            </div>
+        </section>
+
+        <!-- 28 & 29. ORGANISERS — ACCESSIBLE IMAGE CAROUSEL -->
+        <section id="organisers" class="border-b border-aki-border py-20 px-6 bg-white"
+            aria-labelledby="organisers-heading">
+            <div class="max-w-4xl mx-auto text-center">
+
+                <div class="mb-12">
+                    <span class="text-aki-orange text-xs font-extrabold uppercase tracking-widest block mb-2">07 ·
+                        Leadership</span>
+                    <h2 id="organisers-heading"
+                        class="text-3xl sm:text-4xl font-extrabold text-aki-dark tracking-tight">
+                        The people behind AKI HACKS.
+                    </h2>
+                    <p class="text-sm text-aki-muted mt-2 uppercase tracking-widest font-bold">
+                        Every lead. One mission.
+                    </p>
+                </div>
+
+                <!-- Carousel Container -->
+                <div
+                    class="relative border border-aki-border p-8 sm:p-12 bg-white flex flex-col items-center justify-center">
+
+                    <h3 class="text-2xl font-black uppercase text-aki-dark tracking-tight">secret: Revealing on 10th September</h3>
+
+                </div>
+
+            </div>
+        </section>
+
+        <!-- FROM COMMUNITY TO AKI HACKS -->
+        <section class="border-b border-aki-border py-20 px-6 bg-white" aria-labelledby="community-heading">
+            <div class="max-w-6xl mx-auto">
+                <div class="flex flex-col lg:flex-row gap-12 lg:items-center">
+
+                    <!-- Left: Text content -->
+                    <div class="lg:w-1/2">
+                        <span
+                            class="text-aki-orange text-xs font-extrabold uppercase tracking-widest block mb-3">Community
+                            Origins</span>
+                        <h2 id="community-heading"
+                            class="text-3xl sm:text-5xl font-black text-aki-dark tracking-tight leading-[1.1] mb-6">
+                            Before AKI HACKS, we built a community.
+                        </h2>
+                        <p class="text-base text-aki-muted leading-relaxed mb-6">
+                            Miro Meetups Kolkata became a two-day experience on March 23–24, 2026, across ZIOKS and
+                            Techno India University, bringing together 100+ student developers, creators, and
+                            innovators. The event focused on product-first thinking, structured ideation, collaboration,
+                            and real-world problem solving.
+                        </p>
+
+                        <!-- Strong stat -->
+                        <div class="border-l-4 border-aki-orange pl-6 py-2 mb-6">
+                            <span class="block text-4xl font-extrabold text-aki-dark tracking-tight mb-1">100+
+                                Builders</span>
+                        </div>
+
+                        <p class="text-base font-bold text-aki-dark leading-relaxed">
+                            That experience showed us what Kolkata's builders can do when they come together. AKI HACKS
+                            is the next chapter.
+                        </p>
+                    </div>
+
+                    <!-- Right: Editorial/News Card -->
+                    <div class="lg:w-1/2">
+                        <div
+                            class="border-2 border-aki-dark bg-white p-8 sm:p-10 relative hover:-translate-y-1 transition-transform duration-300">
+                            <!-- Corner decorative SVG -->
+                            <div class="absolute top-0 right-0 p-4 opacity-20" aria-hidden="true">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#070A0E"
+                                    stroke-width="2">
+                                    <path d="M7 17l9.2-9.2M17 16.5V7H7.5" />
+                                </svg>
+                            </div>
+
+                            <span
+                                class="inline-block px-3 py-1 bg-aki-orange text-white text-[10px] font-extrabold uppercase tracking-widest mb-6">In
+                                the News</span>
+
+                            <h3 class="text-2xl sm:text-3xl font-black text-aki-dark tracking-tight leading-snug mb-8">
+                                “TIU Hosts Miro Meetups Kolkata, Igniting a Product-First Innovation Movement”
+                            </h3>
+
+                            <a href="https://technotimes.info/index.php/2026/04/01/tiu-hosts-miro-meetups-kolkata-igniting-a-product-first-innovation-movement/" target="_blank" rel="noopener noreferrer"
+                                class="inline-flex items-center px-6 py-3 border border-aki-dark text-xs font-extrabold uppercase tracking-widest text-aki-dark hover:bg-aki-dark hover:text-white transition-colors">
+                                Read the full Techno Times story
+                                <span class="ml-2">→</span>
+                            </a>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </section>
+
+        <!-- 30–36. UNLOCK KOLKATA -->
+        <section id="unlock" class="border-b border-aki-border py-20 px-6 bg-white" aria-labelledby="unlock-heading">
+            <div class="max-w-4xl mx-auto text-center">
+
+                <div class="mb-10">
+                    <span class="text-aki-orange text-xs font-extrabold uppercase tracking-widest block mb-2">08 ·
+                        Community Milestone</span>
+                    <h2 id="unlock-heading"
+                        class="text-3xl sm:text-5xl font-black text-aki-dark tracking-tight uppercase">
+                        Unlock Kolkata.
+                    </h2>
+                    <p class="text-base text-aki-muted mt-4 max-w-xl mx-auto">
+                        The first AKI HACKS is planned for Kolkata this October. Now we're asking our community to
+                        unlock it.
+                    </p>
+                </div>
+
+                <div id="unlock-status-container" class="border border-aki-border p-8 sm:p-10 mb-8 bg-white">
+
+                    <div
+                        class="flex items-center justify-between text-xs font-extrabold uppercase tracking-wider text-aki-dark mb-4">
+                        <span class="flex items-center gap-2">
+                            <span class="w-2.5 h-2.5 rounded-full bg-aki-orange"></span>
+                            🇮🇳 KOLKATA
+                        </span>
+                        <span id="vote-count" class="font-mono text-sm">0 / 100</span>
+                    </div>
+
+                    <!-- Progress Bar -->
+                    <div class="w-full h-3 bg-aki-border mb-8 overflow-hidden">
+                        <div id="vote-progress" role="progressbar" aria-valuenow="0" aria-valuemin="0"
+                            aria-valuemax="100" aria-label="Kolkata Unlock Progress"
+                            class="h-full bg-aki-orange transition-all duration-500" style="width: 0%;"></div>
+                    </div>
+
+                    <div class="flex flex-col sm:flex-row items-center justify-center gap-4">
+                        <button type="button" id="open-vote-modal"
+                            class="px-8 py-4 bg-aki-dark text-white text-xs font-extrabold uppercase tracking-widest hover:bg-aki-orange transition-colors">
+                            Vote for Kolkata →
+                        </button>
+                        <button type="button" id="open-share-modal"
+                            class="px-8 py-4 border-2 border-aki-dark text-aki-dark text-xs font-extrabold uppercase tracking-widest hover:bg-aki-dark hover:text-white transition-colors">
+                            Share
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Google Maps of Kolkata (Under Unlocked Kolkata) -->
+                <div class="border border-aki-border bg-white text-left overflow-hidden">
+                    <div class="px-6 py-4 border-b border-aki-border bg-slate-50 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                        <div class="flex items-center gap-2.5">
+                            <span class="inline-block w-2.5 h-2.5 rounded-full bg-aki-orange"></span>
+                            <span class="text-xs font-extrabold uppercase tracking-wider text-aki-dark">Target City · Kolkata, West Bengal 🇮🇳</span>
+                        </div>
+                        <span class="text-[11px] font-semibold text-aki-muted uppercase tracking-wider">City View · Venue Unlocked with Community</span>
+                    </div>
+                    <div class="relative w-full h-72 sm:h-80">
+                        <iframe 
+                            title="Interactive Kolkata Google Map"
+                            src="https://maps.google.com/maps?q=Kolkata,+West+Bengal,+India&t=&z=12&ie=UTF8&iwloc=&output=embed"
+                            width="100%" 
+                            height="100%" 
+                            style="border:0;" 
+                            allowfullscreen="" 
+                            loading="lazy" 
+                            referrerpolicy="no-referrer-when-downgrade">
+                        </iframe>
+                    </div>
+                </div>
+
+            </div>
+        </section>
+
+        <!-- 37. FAQ (Accordion) -->
+        <section id="faq" class="border-b border-aki-border py-20 px-6 bg-white" aria-labelledby="faq-heading">
+            <div class="max-w-4xl mx-auto">
+
+                <div class="mb-12">
+                    <span class="text-aki-orange text-xs font-extrabold uppercase tracking-widest block mb-2">09 ·
+                        Clarifications</span>
+                    <h2 id="faq-heading" class="text-3xl sm:text-4xl font-extrabold text-aki-dark tracking-tight">
+                        Frequently Asked Questions
+                    </h2>
+                </div>
+
+                <div class="space-y-4">
+
+                    <!-- Item 1 -->
+                    <details
+                        class="group border border-aki-border p-6 bg-white [&_summary::-webkit-details-marker]:hidden">
+                        <summary
+                            class="flex items-center justify-between cursor-pointer font-bold text-base text-aki-dark">
+                            <span>Will swag be provided?</span>
+                            <span class="text-aki-orange text-lg group-open:rotate-45 transition-transform">+</span>
+                        </summary>
+                        <p class="mt-4 text-sm text-aki-muted leading-relaxed">
+                            Of course. 🎁
+                        </p>
+                    </details>
+
+                    <!-- Item 2 -->
+                    <details
+                        class="group border border-aki-border p-6 bg-white [&_summary::-webkit-details-marker]:hidden">
+                        <summary
+                            class="flex items-center justify-between cursor-pointer font-bold text-base text-aki-dark">
+                            <span>Will food be provided?</span>
+                            <span class="text-aki-orange text-lg group-open:rotate-45 transition-transform">+</span>
+                        </summary>
+                        <p class="mt-4 text-sm text-aki-muted leading-relaxed">
+                            Of course. 🍱 Food will be provided during the event. There will not be a dedicated lunch
+                            break. Eat with your teammates while continuing the experience.
+                        </p>
+                    </details>
+
+                    <!-- Item 3 -->
+                    <details
+                        class="group border border-aki-border p-6 bg-white [&_summary::-webkit-details-marker]:hidden">
+                        <summary
+                            class="flex items-center justify-between cursor-pointer font-bold text-base text-aki-dark">
+                            <span>Will there be mentors?</span>
+                            <span class="text-aki-orange text-lg group-open:rotate-45 transition-transform">+</span>
+                        </summary>
+                        <p class="mt-4 text-sm text-aki-muted leading-relaxed">
+                            Yes. There will be more than 3 mentors available to guide participants.
+                        </p>
+                    </details>
+
+                    <!-- Item 4 -->
+                    <details
+                        class="group border border-aki-border p-6 bg-white [&_summary::-webkit-details-marker]:hidden">
+                        <summary
+                            class="flex items-center justify-between cursor-pointer font-bold text-base text-aki-dark">
+                            <span>Can I work with my own team?</span>
+                            <span class="text-aki-orange text-lg group-open:rotate-45 transition-transform">+</span>
+                        </summary>
+                        <p class="mt-4 text-sm text-aki-muted leading-relaxed">
+                            No. You must work with randomly assigned teammates. This is a strict rule.
+                        </p>
+                    </details>
+
+                    <!-- Item 5 -->
+                    <details
+                        class="group border border-aki-border p-6 bg-white [&_summary::-webkit-details-marker]:hidden">
+                        <summary
+                            class="flex items-center justify-between cursor-pointer font-bold text-base text-aki-dark">
+                            <span>Is AKI HACKS a Japanese hackathon?</span>
+                            <span class="text-aki-orange text-lg group-open:rotate-45 transition-transform">+</span>
+                        </summary>
+                        <p class="mt-4 text-sm text-aki-muted leading-relaxed">
+                            No. 🇮🇳 AKI HACKS is an India-based hackathon. Aki / 秋 means autumn in Japanese. We thought
+                            "Autumn Hacks" sounded a little boring, so we chose AKI HACKS.
+                        </p>
+                    </details>
+
+                    <!-- Item 6 -->
+                    <details
+                        class="group border border-aki-border p-6 bg-white [&_summary::-webkit-details-marker]:hidden">
+                        <summary
+                            class="flex items-center justify-between cursor-pointer font-bold text-base text-aki-dark">
+                            <span>How can I volunteer?</span>
+                            <span class="text-aki-orange text-lg group-open:rotate-45 transition-transform">+</span>
+                        </summary>
+                        <div class="mt-4 text-sm text-aki-muted leading-relaxed space-y-3">
+                            <p>Want to help build AKI HACKS from the inside? Volunteer / Core Team Applications forms
+                                releasing soon.</p>
+                            <button type="button" disabled
+                                class="px-4 py-2 border border-aki-border text-xs font-extrabold uppercase tracking-wider text-aki-muted cursor-not-allowed">
+                                Applications Coming Soon
+                            </button>
+                        </div>
+                    </details>
+
+                    <!-- Item 7 -->
+                    <details
+                        class="group border border-aki-border p-6 bg-white [&_summary::-webkit-details-marker]:hidden">
+                        <summary
+                            class="flex items-center justify-between cursor-pointer font-bold text-base text-aki-dark">
+                            <span>Can I become part of the core team?</span>
+                            <span class="text-aki-orange text-lg group-open:rotate-45 transition-transform">+</span>
+                        </summary>
+                        <div class="mt-4 text-sm text-aki-muted leading-relaxed space-y-3">
+                            <p>We're building the community around AKI HACKS and will open opportunities for volunteers
+                                and core-team contributors.</p>
+                            <button type="button" disabled
+                                class="px-4 py-2 border border-aki-border text-xs font-extrabold uppercase tracking-wider text-aki-muted cursor-not-allowed">
+                                Join the Team — Coming Soon
+                            </button>
+                        </div>
+                    </details>
+
+                </div>
+
+            </div>
+        </section>
+
+        <!-- 38 & 39. SUPPORT & CONTACT -->
+        <section id="support" class="border-b border-aki-border py-20 px-6 bg-white" aria-labelledby="support-heading">
+            <div class="max-w-7xl mx-auto">
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-12">
+
+                    <div>
+                        <span class="text-aki-orange text-xs font-extrabold uppercase tracking-widest block mb-2">10 ·
+                            Contact</span>
+                        <h2 id="support-heading"
+                            class="text-3xl sm:text-4xl font-extrabold text-aki-dark tracking-tight mb-4">
+                            Need help?
+                        </h2>
+                        <p class="text-base text-aki-muted leading-relaxed mb-8">
+                            Have a question, partnership proposal, sponsorship inquiry, accessibility concern or just
+                            want to talk to us?
+                        </p>
+
+                        <div class="space-y-4 border-t border-aki-border pt-6 text-sm">
+                            <div>
+                                <span class="text-xs uppercase font-extrabold text-aki-muted block">General
+                                    Inquiries</span>
+                                <a href="mailto:soham@blobly.in"
+                                    class="font-bold text-aki-dark hover:text-aki-orange transition-colors">soham@blobly.in</a>
+                            </div>
+                            <div>
+                                <span class="text-xs uppercase font-extrabold text-aki-muted block">Support &
+                                    Accessibility</span>
+                                <a href="mailto:support@blobly.in"
+                                    class="font-bold text-aki-dark hover:text-aki-orange transition-colors">support@blobly.in</a>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Form -->
+                    <div class="border border-aki-border p-8 bg-white">
+                        <form id="support-form" class="space-y-4">
+                            <div>
+                                <label for="support-name"
+                                    class="block text-xs uppercase font-extrabold tracking-wider text-aki-dark mb-1">Name</label>
+                                <input type="text" id="support-name" required
+                                    class="w-full px-4 py-3 border border-aki-border text-sm font-medium focus:border-aki-orange outline-none bg-white text-aki-dark"
+                                    placeholder="Enter your name" />
+                            </div>
+                            <div>
+                                <label for="support-email"
+                                    class="block text-xs uppercase font-extrabold tracking-wider text-aki-dark mb-1">Email</label>
+                                <input type="email" id="support-email" required
+                                    class="w-full px-4 py-3 border border-aki-border text-sm font-medium focus:border-aki-orange outline-none bg-white text-aki-dark"
+                                    placeholder="Enter your email" />
+                            </div>
+                            <div>
+                                <label for="support-message"
+                                    class="block text-xs uppercase font-extrabold tracking-wider text-aki-dark mb-1">Message</label>
+                                <textarea id="support-message" rows="4" required
+                                    class="w-full px-4 py-3 border border-aki-border text-sm font-medium focus:border-aki-orange outline-none bg-white text-aki-dark"
+                                    placeholder="How can we assist you?"></textarea>
+                            </div>
+                            <button type="submit" id="support-submit-btn"
+                                class="w-full py-4 bg-aki-dark text-white text-xs font-extrabold uppercase tracking-widest hover:bg-aki-orange transition-colors">
+                                Send Message →
+                            </button>
+                            <span id="support-status" aria-live="polite" class="hidden"></span>
+                        </form>
+                    </div>
+
+                </div>
+            </div>
+        </section>
+
+        <!-- 40. SPONSORS & PARTNERS -->
+        <section id="sponsors" class="border-b border-aki-border py-20 px-6 bg-white" aria-labelledby="sponsors-heading">
+            <div class="max-w-6xl mx-auto">
+                <div class="text-center mb-14">
+                    <span class="text-aki-orange text-xs font-extrabold uppercase tracking-widest block mb-2">11 ·
+                        Backed By</span>
+                    <h2 id="sponsors-heading" class="text-3xl sm:text-5xl font-black text-aki-dark tracking-tight uppercase">
+                        Sponsors & Partners
+                    </h2>
+                    <p class="text-sm sm:text-base text-aki-muted mt-3 max-w-xl mx-auto">
+                        Empowering innovation, accessibility, and the next generation of builders in Kolkata.
+                    </p>
+                </div>
+
+                <!-- Event Partner Card -->
+                <div class="max-w-xl mx-auto">
+
+                    <!-- EVENT PARTNER: BLOBLY -->
+                    <div
+                        class="border-2 border-aki-dark p-8 sm:p-10 bg-white flex flex-col items-center justify-between text-center relative group hover:border-aki-orange transition-all duration-300">
+                        <div class="w-full">
+                            <div class="flex items-center justify-center mb-6">
+                                <span
+                                    class="inline-flex items-center gap-1.5 px-3.5 py-1 bg-aki-dark text-white text-[11px] font-extrabold uppercase tracking-widest">
+                                    Official Event Partner
+                                </span>
+                            </div>
+                            <div class="py-6 flex items-center justify-center min-h-[130px]">
+                                <a href="https://blobly.in" target="_blank" rel="noopener noreferrer"
+                                    class="inline-block transition-transform duration-300 group-hover:scale-105"
+                                    aria-label="Blobly — Official Event Partner (opens in new tab)">
+                                    <img src="blobly.png" alt="Blobly — Event Partner Logo"
+                                        class="h-16 sm:h-20 w-auto max-w-[260px] object-contain mx-auto" />
+                                </a>
+                            </div>
+                        </div>
+
+                        <a href="https://blobly.in" target="_blank" rel="noopener noreferrer"
+                            class="mt-4 inline-flex items-center text-xs font-extrabold uppercase tracking-widest text-aki-dark group-hover:text-aki-orange transition-colors">
+                            Visit Blobly <span class="ml-1.5 transition-transform group-hover:translate-x-1">→</span>
+                        </a>
+                    </div>
+
+                </div>
+
+                <!-- MORE PARTNERS COMING SOON BANNER -->
+                <div
+                    class="mt-10 max-w-4xl mx-auto border border-dashed border-aki-border p-6 sm:p-8 bg-aki-surface flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
+                    <div>
+                        <div class="flex items-center gap-2 mb-2">
+                            <span class="w-2 h-2 rounded-full bg-aki-orange"></span>
+                            <span class="text-xs font-extrabold uppercase tracking-widest text-aki-orange">In Progress</span>
+                        </div>
+                        <h3 class="text-lg sm:text-xl font-bold text-aki-dark tracking-tight">More Partners Coming Soon</h3>
+                        <p class="text-xs sm:text-sm text-aki-muted mt-1">
+                            We are actively onboarding community organisations, tooling partners, and sponsors.
+                        </p>
+                    </div>
+                    <a href="https://forms.gle/FCEHhPQ8z7gqiyVNA" target="_blank" rel="noopener noreferrer"
+                        class="px-6 py-3 bg-aki-dark text-white text-xs font-extrabold uppercase tracking-widest hover:bg-aki-orange transition-colors shrink-0">
+                        Partner With Us →
+                    </a>
+                </div>
+            </div>
+        </section>
+
+        <!-- 41. FINAL JAPANESE VISUAL SECTION (平和) -->
+        <section class="border-b border-aki-border py-28 sm:py-36 px-6 bg-white relative overflow-hidden text-center"
+            aria-label="Calm Conclusion">
+
+            <div class="max-w-3xl mx-auto relative z-10">
+                <!-- Subtle Mask Stroke -->
+                <div class="mb-8 opacity-20 inline-block" aria-hidden="true">
+                    <svg width="48" height="56" viewBox="0 0 100 120" fill="none" stroke="#070A0E" stroke-width="2.5">
+                        <path d="M50 15 L20 45 L25 80 L50 105 L75 80 L80 45 Z" />
+                        <path d="M20 45 L5 20 L35 38" />
+                        <path d="M80 45 L95 20 L65 38" />
+                    </svg>
+                </div>
+
+                <!-- Large Heiwa Text -->
+                <h2 class="text-7xl sm:text-9xl font-normal font-jp text-aki-dark tracking-widest select-none">
+                    平和
+                </h2>
+            </div>
+
+        </section>
+
+        <!-- 42. FUN FACT -->
+        <section class="border-b border-aki-border py-16 px-6 bg-white text-center" aria-labelledby="fun-fact-heading">
+            <div class="max-w-2xl mx-auto">
+                <span class="text-aki-orange text-xs font-extrabold uppercase tracking-widest block mb-2">Origin</span>
+                <h2 id="fun-fact-heading" class="text-xl font-bold text-aki-dark mb-4">
+                    Fun Fact 🤫
+                </h2>
+                <p class="text-base text-aki-dark leading-relaxed font-medium mb-2">
+                    We couldn't name it Autumn Hacks, so we created AKI. Aki means autumn in Japanese.
+                </p>
+                <p class="text-sm text-aki-muted leading-relaxed mb-6">
+                    And that's how AKI HACKS was born.
+                </p>
+                <div
+                    class="inline-flex items-center gap-2 px-3 py-1 border border-aki-border text-xs font-bold text-aki-dark">
+                    <span>100% Indian. 🇮🇳</span>
+                    <span class="text-aki-border">|</span>
+                    <span class="font-jp text-aki-orange font-bold">秋</span>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- 43. FOOTER -->
+    <footer class="py-16 px-6 bg-white text-aki-dark">
+        <div class="max-w-7xl mx-auto">
+
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-10 pb-12 border-b border-aki-border">
+
+                <div>
+                    <span class="text-xl font-black uppercase tracking-tight block text-aki-dark mb-2">AKI HACKS</span>
+                    <p class="text-xs text-aki-orange font-bold uppercase tracking-wider mb-4">Build Solutions. Break
+                        Barriers.</p>
+                    <p class="text-xs text-aki-muted leading-relaxed">
+                        Kolkata · October 2026<br />
+                        Date — TBD<br />
+                        Venue — TBD
+                    </p>
+                </div>
+
+                <div>
+                    <span
+                        class="text-xs font-extrabold uppercase tracking-widest text-aki-muted block mb-4">Navigation</span>
+                    <ul class="space-y-2 text-xs font-bold uppercase tracking-wider">
+                        <li><a href="#about" class="hover:text-aki-orange transition-colors">About</a></li>
+                        <li><a href="#startup-simulation" class="hover:text-aki-orange transition-colors">Experience</a>
+                        </li>
+                        <li><a href="#journey" class="hover:text-aki-orange transition-colors">Agenda</a></li>
+                        <li><a href="#organisers" class="hover:text-aki-orange transition-colors">Organisers</a></li>
+                        <li><a href="#unlock" class="hover:text-aki-orange transition-colors">Unlock Kolkata</a></li>
+                        <li><a href="#sponsors" class="hover:text-aki-orange transition-colors">Sponsors</a></li>
+                        <li><a href="#faq" class="hover:text-aki-orange transition-colors">FAQ</a></li>
+                        <li><a href="#support" class="hover:text-aki-orange transition-colors">Support</a></li>
+                    </ul>
+                </div>
+
+                <div>
+                    <span
+                        class="text-xs font-extrabold uppercase tracking-widest text-aki-muted block mb-4">Contact</span>
+                    <ul class="space-y-2 text-xs font-medium">
+                        <li><a href="mailto:soham@blobly.in"
+                                class="hover:text-aki-orange transition-colors">soham@blobly.in</a></li>
+                        <li><a href="mailto:support@blobly.in"
+                                class="hover:text-aki-orange transition-colors">support@blobly.in</a></li>
+                    </ul>
+                </div>
+
+                <div>
+                    <span class="text-xs font-extrabold uppercase tracking-widest text-aki-muted block mb-4">Supported By</span>
+                    <div class="space-y-4">
+                        <div>
+                            <span class="text-[10px] font-extrabold uppercase tracking-wider text-aki-dark font-bold block mb-1">Official Event Partner</span>
+                            <a href="https://blobly.in" target="_blank" rel="noopener noreferrer" class="inline-block"
+                                aria-label="Blobly Website">
+                                <img src="blobly.png" alt="Blobly Partner Logo" class="h-8 w-auto object-contain" />
+                            </a>
+                        </div>
+                        <div class="pt-2 border-t border-dashed border-aki-border">
+                            <span class="text-[10px] font-extrabold uppercase tracking-wider text-aki-orange block">
+                                + More partners coming soon
+                            </span>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <div class="pt-8 flex flex-col sm:flex-row items-center justify-between text-xs text-aki-muted gap-4">
+                <span>© 2026 AKI HACKS. All rights reserved.</span>
+                <span>100 votes. One city. One beginning.</span>
+            </div>
+
+        </div>
+    </footer>
+
+    <!-- 32. VOTE MODAL -->
+    <div id="vote-modal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-aki-dark/60 hidden"
+        role="dialog" aria-modal="true" aria-labelledby="modal-title">
+        <div class="bg-white border-2 border-aki-dark p-6 sm:p-8 max-w-md w-full relative">
+
+            <button type="button" id="close-vote-modal" aria-label="Close voting modal"
+                class="absolute top-4 right-4 text-aki-dark text-xl font-bold hover:text-aki-orange">
+                &times;
+            </button>
+
+            <div class="mb-6">
+                <span class="text-aki-orange text-[10px] font-extrabold uppercase tracking-widest block mb-1">Community
+                    Unlock</span>
+                <h3 id="modal-title" class="text-2xl font-black uppercase text-aki-dark tracking-tight">Vote for Kolkata
+                </h3>
+                <p class="text-xs text-aki-muted mt-1">Help unlock the first edition of AKI HACKS.</p>
+            </div>
+
+            <form id="vote-form" class="space-y-4">
+                <div>
+                    <label for="voter-name"
+                        class="block text-xs uppercase font-extrabold tracking-wider text-aki-dark mb-1">Name</label>
+                    <input type="text" id="voter-name" required
+                        class="w-full px-4 py-2.5 border border-aki-border text-sm font-medium focus:border-aki-orange outline-none bg-white text-aki-dark"
+                        placeholder="Enter your name" />
+                </div>
+
+                <div>
+                    <label for="voter-email"
+                        class="block text-xs uppercase font-extrabold tracking-wider text-aki-dark mb-1">Email</label>
+                    <input type="email" id="voter-email" required
+                        class="w-full px-4 py-2.5 border border-aki-border text-sm font-medium focus:border-aki-orange outline-none bg-white text-aki-dark"
+                        placeholder="Enter your email" />
+                </div>
+
+                <button type="submit" id="submit-vote-btn"
+                    class="w-full py-3.5 bg-aki-orange text-white text-xs font-extrabold uppercase tracking-widest hover:bg-aki-dark transition-colors">
+                    Submit Vote →
+                </button>
+
+                <span id="vote-form-msg" class="hidden text-xs"></span>
+            </form>
+
+        </div>
+    </div>
+
+    <!-- SHARE MODAL -->
+    <div id="share-modal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-aki-dark/60 hidden"
+        role="dialog" aria-modal="true" aria-labelledby="share-modal-title">
+        <div class="bg-white border-2 border-aki-dark p-6 sm:p-8 max-w-md w-full relative text-center">
+
+            <button type="button" id="close-share-modal" aria-label="Close share modal"
+                class="absolute top-4 right-4 text-aki-dark text-xl font-bold hover:text-aki-orange">
+                &times;
+            </button>
+
+            <div class="mb-6">
+                <span class="text-aki-orange text-[10px] font-extrabold uppercase tracking-widest block mb-1">Spread the Word</span>
+                <h3 id="share-modal-title" class="text-2xl font-black uppercase text-aki-dark tracking-tight">Share to Unlock
+                </h3>
+                <p class="text-xs text-aki-muted mt-1">Scan the QR or copy the link to share.</p>
+            </div>
+
+            <!-- QR CODE IMAGE -->
+            <div class="mb-6 flex justify-center">
+                <img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=https%3A%2F%2Fakihacks.blobly.in%2F%23unlock" alt="QR Code" class="border p-2 border-aki-border" />
+            </div>
+
+            <div class="mb-4">
+                <div class="flex items-center border border-aki-border p-2 bg-gray-50">
+                    <input type="text" id="share-link-input" readonly value="https://akihacks.blobly.in/#unlock" class="w-full bg-transparent text-sm font-medium outline-none text-aki-dark px-2" />
+                    <button type="button" id="copy-share-link" class="px-4 py-2 bg-aki-dark text-white text-xs font-bold uppercase tracking-wider hover:bg-aki-orange transition-colors whitespace-nowrap">
+                        Copy
+                    </button>
+                </div>
+                <span id="copy-msg" class="text-xs text-aki-orange font-bold mt-2 block hidden">Copied!</span>
+            </div>
+
+            <a href="#" id="whatsapp-share-btn" target="_blank" rel="noopener noreferrer"
+                class="block w-full py-3.5 bg-[#25D366] text-white text-xs font-extrabold uppercase tracking-widest hover:bg-aki-dark transition-colors">
+                Share on WhatsApp
+            </a>
+
+        </div>
+    </div>
+
+    <!-- APPLY COMING SOON MODAL -->
+    <div id="apply-modal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-aki-dark/60 hidden"
+        role="dialog" aria-modal="true" aria-labelledby="apply-modal-title">
+        <div class="bg-white border-2 border-aki-dark p-6 sm:p-8 max-w-md w-full relative text-center">
+
+            <button type="button" id="close-apply-modal" aria-label="Close modal"
+                class="absolute top-4 right-4 text-aki-dark text-xl font-bold hover:text-aki-orange transition-colors">
+                &times;
+            </button>
+
+            <div class="mb-6">
+                <span class="inline-block px-3 py-1 bg-aki-orange text-white text-[10px] font-extrabold uppercase tracking-widest mb-3">
+                    COMING SOON
+                </span>
+                <h3 id="apply-modal-title" class="text-2xl font-black uppercase text-aki-dark tracking-tight">
+                    Applications Opening Soon!
+                </h3>
+                <p class="text-xs sm:text-sm text-aki-muted mt-3 leading-relaxed">
+                    Registrations for <strong class="text-aki-dark">AKI HACKS 2026</strong> are currently being prepared. Help us unlock Kolkata first to get notified the second applications go live!
+                </p>
+            </div>
+
+            <div class="space-y-3">
+                <button type="button" id="apply-vote-redirect"
+                    class="w-full py-3.5 bg-aki-orange text-white text-xs font-extrabold uppercase tracking-widest hover:bg-aki-dark transition-colors">
+                    Vote to Unlock Kolkata →
+                </button>
+                <button type="button" onclick="document.getElementById('apply-modal').classList.add('hidden')"
+                    class="w-full py-3 border border-aki-border text-aki-dark text-xs font-extrabold uppercase tracking-widest hover:border-aki-dark transition-colors">
+                    Got It
+                </button>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- TOAST NOTIFICATION -->
+    <div id="apply-toast" class="fixed bottom-6 right-6 z-50 bg-aki-dark text-white px-5 py-3.5 border-l-4 border-aki-orange text-xs font-bold uppercase tracking-wider flex items-center gap-3 hidden transition-all">
+        <span>🚀 Applications will be coming soon!</span>
+    </div>
+
+    <!-- ORGANISER CAROUSEL SCRIPT -->
+    <script>
+        const organisers = [
+            { name: "Soham Das", role: "Lead Organiser", image: "soham.png", linkedin: "https://www.linkedin.com/in/sohamdev77/" },
+            { name: "Omkar Dutta", role: "Lead Organiser", image: "omkar.png", linkedin: "https://www.linkedin.com/in/omkar-dutta-989ba83a9/" },
+            { name: "S Shreyas", role: "Lead Organiser", image: "shreyas.png", linkedin: "https://www.linkedin.com/in/s-shreyas-miro/" },
+            { name: "Subham Saha", role: "Lead Organiser", image: "shubham.png", linkedin: "https://www.linkedin.com/in/reaper007/" },
+            { name: "Tamanash Das", role: "Lead Organiser", image: "tamanash.png", linkedin: "https://www.linkedin.com/in/toivixd/" }
+        ];
+
+        let currentOrgIndex = 0;
+        const orgImg = document.getElementById("carousel-img");
+        const orgName = document.getElementById("carousel-name");
+        const orgRole = document.getElementById("carousel-role");
+        const orgLinkedin = document.getElementById("carousel-linkedin");
+        const orgCounter = document.getElementById("carousel-counter");
+        const prevBtn = document.getElementById("carousel-prev");
+        const nextBtn = document.getElementById("carousel-next");
+
+        function renderOrganiser(index) {
+            const org = organisers[index];
+            orgImg.src = org.image;
+            orgImg.alt = `${org.name} - ${org.role}`;
+            orgName.textContent = org.name;
+            orgRole.textContent = org.role;
+            if (orgLinkedin) orgLinkedin.href = org.linkedin;
+            orgCounter.textContent = `0${index + 1} / 05`;
+        }
+
+        if (prevBtn && nextBtn) {
+            prevBtn.addEventListener("click", () => {
+                currentOrgIndex = (currentOrgIndex - 1 + organisers.length) % organisers.length;
+                renderOrganiser(currentOrgIndex);
+            });
+
+            nextBtn.addEventListener("click", () => {
+                currentOrgIndex = (currentOrgIndex + 1) % organisers.length;
+                renderOrganiser(currentOrgIndex);
+            });
+        }
+    </script>
+
+</body>
+
+</html>
