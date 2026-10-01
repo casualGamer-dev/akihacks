@@ -20,7 +20,7 @@ export const defaults = {
     registerUrl: "https://events.mlh.com/events/15462-hacktoberfest-hack-day-kolkata-x-aki-hacks",
     registerLabel: "Register now",
     organizerName: "Caltech Circle",
-    linkedinUrl: "https://www.linkedin.com/company/caltechcircle/",
+    linkedinUrl: "https://www.linkedin.com/company/caltech-circle-official",
     instagramUrl: "https://www.instagram.com/caltechcircle/",
   },
   home: {
@@ -131,7 +131,7 @@ export const defaults = {
     title: "Sponsors & partners.",
     lead: "Empowering innovation, accessibility, and the next generation of builders in Kolkata.",
     others: [
-      { name: "ElevenLabs", tier: "Sponsor", logo: "", url: "" },
+      { name: "ElevenLabs", tier: "Sponsor", logo: "/sponsors/elevenlabs.svg", url: "https://elevenlabs.io" },
       { name: ".xyz Domains", tier: "Sponsor", logo: "", url: "" },
       { name: "Osen", tier: "Sponsor", logo: "", url: "" },
     ] as { name: string; tier: string; logo: string; url: string }[],
