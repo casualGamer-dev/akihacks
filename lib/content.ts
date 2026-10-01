@@ -17,7 +17,7 @@ export const defaults = {
     email: "tamanashdas@hotmail.com",
     supportEmail: "support@akihacks.xyz",
     partnerFormUrl: "https://forms.gle/FCEHhPQ8z7gqiyVNA",
-    registerUrl: "https://events.mlh.com/events/15183-hacktoberfest-hack-day-kolkata-x-aki-hacks",
+    registerUrl: "https://events.mlh.com/events/15462-hacktoberfest-hack-day-kolkata-x-aki-hacks",
     registerLabel: "Register now",
     organizerName: "Caltech Circle",
     linkedinUrl: "https://www.linkedin.com/company/caltechcircle/",
