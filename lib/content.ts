@@ -38,24 +38,16 @@ export const defaults = {
       "Judging rewards original, technically strong work above everything else. A working prototype that does something new beats a polished pitch for something familiar. Business viability matters, but it comes second.",
     pathTitle: "This isn't a pitch contest. It's a build contest.",
     pathBody:
-      "Real problems from NGOs, foundations and partner organisations working with people with disabilities. The goal isn't a slide deck. It's a working prototype that pushes what's possible.",
+      "Build around the MLH challenges: Best Use of Gemma, Best Use of ElevenLabs and Best Use of Open Source AI. The goal isn't a slide deck. It's a working prototype that pushes what's possible.",
     stages: ["Problem", "Team", "Design", "Build", "Test", "Demo", "Judging"],
     stagesNote: "Stage 04 is where it counts: a working build.",
-    focusTitle: "Real problems. Not hypothetical prompts.",
+    focusTitle: "Three MLH challenges. One build.",
     focusBody:
-      "AKI HACKS will partner with NGOs and foundations to bring real accessibility problems to participants. Partner announcements are coming soon.",
+      "Every project at AKI HACKS is built around the MLH challenges. Pick one, or combine them.",
     focus: [
-      "Mobility",
-      "Education",
-      "Communication",
-      "Digital accessibility",
-      "Employment",
-      "Transportation",
-      "Independent living",
-      "Assistive technology",
-      "Visual accessibility",
-      "Hearing accessibility",
-      "Public infrastructure",
+      "Best Use of Gemma",
+      "Best Use of ElevenLabs",
+      "Best Use of Open Source AI",
     ],
     communityTitle: "Before AKI HACKS, we built a community.",
     communityBody:
@@ -74,7 +66,7 @@ export const defaults = {
   },
   experience: {
     title: "Build something new.",
-    lead: "You're here to build technology that hasn't been built yet. Real problems from NGOs, foundations and partner organisations working with people with disabilities, a working prototype, and judging that rewards innovation above everything else.",
+    lead: "You're here to build technology that hasn't been built yet. Three MLH challenges (Gemma, ElevenLabs, Open Source AI), a working prototype, and judging that rewards innovation above everything else.",
     twistTitle: "Innovation is the point.",
     twistBody:
       "You won't win by pitching the safest idea. Judges look for original approaches, technical depth, and prototypes that actually work. Business viability counts, but it comes second.",
@@ -91,7 +83,7 @@ export const defaults = {
     mentorTitle: "You won't be building alone.",
     mentorBody:
       "More than 3 mentors will be available throughout to guide teams, challenge their assumptions and help them through the problems they hit. Mentor announcements are coming soon.",
-    mentorAreas: ["Engineering", "Systems", "Design", "Product", "Accessibility", "Demoing"],
+    mentorAreas: ["Engineering", "Systems", "Design", "Product", "AI & ML", "Demoing"],
     ctaTitle: "Ready for Day Zero?",
   },
   journey: {
@@ -99,9 +91,9 @@ export const defaults = {
     lead: "Seven steps: from problem statement to final demo.",
     steps: [
       { title: "Introduction", body: "The host welcomes everyone and covers the event format, rules, judging, and submission criteria.", tag: "" },
-      { title: "Speaker session", body: "Innovation, engineering, accessibility, building products, failure, and problem solving.", tag: "Speaker to be announced" },
-      { title: "Problem statements", body: "NGO and foundation partners introduce real-world barriers, constraints, and opportunities faced by people with disabilities.", tag: "Real problems" },
-      { title: "Plan your build", body: "With your team, pick a problem, choose your approach, and decide what to build. Original approaches score higher than safe ones.", tag: "Innovation first" },
+      { title: "Speaker session", body: "Innovation, engineering, open source AI, building products, failure, and problem solving.", tag: "Speaker to be announced" },
+      { title: "MLH challenges", body: "Organisers walk through the three MLH challenges: Best Use of Gemma, Best Use of ElevenLabs and Best Use of Open Source AI.", tag: "MLH challenges" },
+      { title: "Plan your build", body: "With your team, pick a challenge, choose your approach, and decide what to build. Original approaches score higher than safe ones.", tag: "Innovation first" },
       { title: "Build", body: "Design, prototype, iterate. Split the work, get through technical hurdles, scope changes, and time pressure. Lunch is provided; eat while you build, the sprint doesn't pause.", tag: "Core sprint" },
       { title: "Submit your project", body: "Team roster, problem addressed, solution architecture, working prototype, and demo details.", tag: "Submission forms releasing soon" },
       { title: "Final evaluation", body: "Judged on innovation, technical execution, and impact. Business viability is considered last.", tag: "100 points" },
@@ -120,16 +112,13 @@ export const defaults = {
     title: "The people behind AKI HACKS.",
     lead: "Every lead. One mission.",
     people: [
-      { name: "Soham Das", role: "Lead organiser", url: "https://www.linkedin.com/in/sohamdev77/", photo: "" },
-      { name: "Omkar Dutta", role: "Lead organiser", url: "https://www.linkedin.com/in/omkar-dutta-989ba83a9/", photo: "" },
-      { name: "S Shreyas", role: "Lead organiser", url: "https://www.linkedin.com/in/s-shreyas-miro/", photo: "" },
-      { name: "Subham Saha", role: "Lead organiser", url: "https://www.linkedin.com/in/reaper007/", photo: "" },
+      { name: "Koustav Singh", role: "Lead organiser", url: "", photo: "" },
       { name: "Tamanash Das", role: "Lead organiser", url: "https://www.linkedin.com/in/toivixd/", photo: "" },
     ],
   },
   sponsors: {
     title: "Sponsors & partners.",
-    lead: "Empowering innovation, accessibility, and the next generation of builders in Kolkata.",
+    lead: "Empowering innovation, open source AI, and the next generation of builders in Kolkata.",
     others: [
       { name: "ElevenLabs", tier: "Sponsor", logo: "/sponsors/elevenlabs.svg", url: "https://elevenlabs.io" },
       { name: ".xyz Domains", tier: "Sponsor", logo: "", url: "" },
@@ -152,6 +141,31 @@ export const defaults = {
       { q: "How can I volunteer, or join the core team?", a: "We're building the community around AKI HACKS and will open volunteer and core-team applications. Forms are releasing soon." },
       { q: "When and where is it?", a: "Kolkata, October 2026. Date and venue are to be announced. Register to get updates first." },
     ],
+  },
+  // Not decided yet (see PRODUCT.md): empty lists show the note instead of invented content. Fill in from /admin.
+  timeline: {
+    title: "Event timeline.",
+    lead: "When things happen, hour by hour.",
+    emptyNote: "The schedule is to be announced. Register to get it first.",
+    items: [
+      { time: "8:00 AM – 10:00 AM", title: "Registration & Setup", body: "Participant check-in, registration, team verification, seating, laptop and development environment setup, and distribution of event materials." },
+      { time: "10:00 AM – 10:30 AM", title: "Opening Ceremony & Hackathon Briefing", body: "Welcome address, introduction to AKI HACKS, rules, submission process, judging criteria, and important event announcements." },
+      { time: "10:30 AM – 6:30 PM", title: "Hacking Period", body: "Teams of 2–4 members work on their projects during the dedicated hacking session. Mentors will be available throughout the day to guide teams and help them with technical or product-related challenges." },
+      { time: "6:30 PM – 7:00 PM", title: "Final Submission & Demo Preparation", body: "Teams submit their projects and prepare their final presentations and demonstrations for the judges." },
+      { time: "7:00 PM – 8:00 PM", title: "Project Demonstrations & Judging", body: "Selected teams present their projects to the judges, followed by evaluation based on the announced judging criteria." },
+      { time: "8:00 PM – 8:30 PM", title: "Closing Ceremony & Winner Announcement", body: "Winner announcement, sponsor and partner acknowledgements, and closing remarks." },
+      { time: "8:30 PM – 9:00 PM", title: "Photography & Wrap-up", body: "Group photographs, team photos, mentor and judge photographs, final interactions, and venue wrap-up." },
+    ] as { time: string; title: string; body: string }[],
+  },
+  tracks: {
+    title: "MLH challenges.",
+    lead: "Everything you build here revolves around these three.",
+    emptyNote: "Challenges are to be announced. Register to get them first.",
+    items: [
+      { name: "Best Use of Gemma", body: "Build with Google's open Gemma models. The most inventive, well-executed use of Gemma wins.", image: "" },
+      { name: "Best Use of ElevenLabs", body: "Give your project a voice with ElevenLabs: speech, audio, or conversational AI used in a way that matters.", image: "" },
+      { name: "Best Use of Open Source AI", body: "Build on open source models and tools. The best use of open source AI wins.", image: "" },
+    ] as { name: string; body: string; image: string }[],
   },
   contact: {
     title: "Need help?",

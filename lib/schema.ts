@@ -142,6 +142,30 @@ export const sections: Record<SectionId, { label: string; path: string; fields: 
     path: "/faq",
     fields: [t("title", "Page title"), list("items", "Questions", "q", [t("q", "Question"), ta("a", "Answer")])],
   },
+  timeline: {
+    label: "Event timeline",
+    path: "/timeline",
+    fields: [
+      t("title", "Page title"),
+      ta("lead", "Intro"),
+      ta("emptyNote", "Text shown while there are no entries"),
+      list("items", "Schedule entries (in order)", "title", [
+        t("time", "When (e.g. Day 1 · 10:00)"),
+        t("title", "Title"),
+        ta("body", "Details (optional)"),
+      ]),
+    ],
+  },
+  tracks: {
+    label: "Tracks",
+    path: "/tracks",
+    fields: [
+      t("title", "Page title"),
+      ta("lead", "Intro"),
+      ta("emptyNote", "Text shown while there are no tracks"),
+      list("items", "Tracks", "name", [t("name", "Name"), ta("body", "Description"), img("image", "Image (optional)")]),
+    ],
+  },
   contact: {
     label: "Contact page",
     path: "/contact",
